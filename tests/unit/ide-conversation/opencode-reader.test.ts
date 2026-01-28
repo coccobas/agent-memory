@@ -207,7 +207,8 @@ describe('OpenCodeReader', () => {
 
       expect(messages).toHaveLength(1);
       expect(messages[0]?.toolsUsed).toEqual(['Read']);
-      expect(messages[0]?.content).toContain('[Tool calls: Read]');
+      expect(messages[0]?.content).toContain('Read');
+      expect(messages[0]?.content).toContain('path');
     });
 
     it('should filter messages by time range', async () => {
@@ -332,6 +333,224 @@ describe('OpenCodeReader', () => {
 
       const messages = await reader.getMessages(sessionId);
       expect(messages).toHaveLength(0);
+    });
+
+    describe('tool execution capture', () => {
+      it('should capture tool input and output from state', async () => {
+        const sessionId = 'sess-tool-input-output';
+        const messageId = 'msg-tool-001';
+
+        const messageDir = join(testDir, 'message', sessionId);
+        const partDir = join(testDir, 'part', messageId);
+
+        await mkdir(messageDir, { recursive: true });
+        await mkdir(partDir, { recursive: true });
+
+        const messageData = {
+          id: messageId,
+          sessionID: sessionId,
+          role: 'assistant',
+          time: { created: Date.now() },
+        };
+
+        const toolPart = {
+          id: 'part-1',
+          sessionID: sessionId,
+          messageID: messageId,
+          type: 'tool',
+          tool: 'bash',
+          state: {
+            status: 'completed',
+            input: { command: 'echo "Hello World"', workdir: '/tmp' },
+            output: 'Hello World\n',
+          },
+        };
+
+        await writeFile(join(messageDir, `${messageId}.json`), JSON.stringify(messageData));
+        await writeFile(join(partDir, '0.json'), JSON.stringify(toolPart));
+
+        const messages = await reader.getMessages(sessionId);
+
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.content).toContain('bash');
+        expect(messages[0]?.content).toContain('command');
+        expect(messages[0]?.metadata?.toolExecutions).toBeDefined();
+        expect(messages[0]?.metadata?.toolExecutions?.[0]?.input).toEqual({
+          command: 'echo "Hello World"',
+          workdir: '/tmp',
+        });
+        expect(messages[0]?.metadata?.toolExecutions?.[0]?.output).toBe('Hello World\n');
+      });
+
+      it('should truncate large output with marker', async () => {
+        const sessionId = 'sess-tool-large-output';
+        const messageId = 'msg-tool-002';
+
+        const messageDir = join(testDir, 'message', sessionId);
+        const partDir = join(testDir, 'part', messageId);
+
+        await mkdir(messageDir, { recursive: true });
+        await mkdir(partDir, { recursive: true });
+
+        const largeOutput = 'x'.repeat(10000);
+
+        const messageData = {
+          id: messageId,
+          sessionID: sessionId,
+          role: 'assistant',
+          time: { created: Date.now() },
+        };
+
+        const toolPart = {
+          id: 'part-1',
+          sessionID: sessionId,
+          messageID: messageId,
+          type: 'tool',
+          tool: 'bash',
+          state: {
+            status: 'completed',
+            input: { command: 'cat large-file.txt' },
+            output: largeOutput,
+          },
+        };
+
+        await writeFile(join(messageDir, `${messageId}.json`), JSON.stringify(messageData));
+        await writeFile(join(partDir, '0.json'), JSON.stringify(toolPart));
+
+        const messages = await reader.getMessages(sessionId);
+
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.metadata?.toolExecutions?.[0]?.output).toMatch(/\.\.\. \[truncated\]$/);
+        expect(messages[0]?.metadata?.toolExecutions?.[0]?.output?.length).toBeGreaterThan(5000);
+      });
+
+      it('should handle tool without state gracefully', async () => {
+        const sessionId = 'sess-tool-no-state';
+        const messageId = 'msg-tool-003';
+
+        const messageDir = join(testDir, 'message', sessionId);
+        const partDir = join(testDir, 'part', messageId);
+
+        await mkdir(messageDir, { recursive: true });
+        await mkdir(partDir, { recursive: true });
+
+        const messageData = {
+          id: messageId,
+          sessionID: sessionId,
+          role: 'assistant',
+          time: { created: Date.now() },
+        };
+
+        const toolPart = {
+          id: 'part-1',
+          sessionID: sessionId,
+          messageID: messageId,
+          type: 'tool',
+          tool: 'bash',
+        };
+
+        await writeFile(join(messageDir, `${messageId}.json`), JSON.stringify(messageData));
+        await writeFile(join(partDir, '0.json'), JSON.stringify(toolPart));
+
+        const messages = await reader.getMessages(sessionId);
+
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.content).toBe('[Tool calls: bash]');
+      });
+
+      it('should handle tool with non-completed status', async () => {
+        const sessionId = 'sess-tool-pending';
+        const messageId = 'msg-tool-004';
+
+        const messageDir = join(testDir, 'message', sessionId);
+        const partDir = join(testDir, 'part', messageId);
+
+        await mkdir(messageDir, { recursive: true });
+        await mkdir(partDir, { recursive: true });
+
+        const messageData = {
+          id: messageId,
+          sessionID: sessionId,
+          role: 'assistant',
+          time: { created: Date.now() },
+        };
+
+        const toolPart = {
+          id: 'part-1',
+          sessionID: sessionId,
+          messageID: messageId,
+          type: 'tool',
+          tool: 'bash',
+          state: {
+            status: 'pending',
+            input: { command: 'sleep 10' },
+          },
+        };
+
+        await writeFile(join(messageDir, `${messageId}.json`), JSON.stringify(messageData));
+        await writeFile(join(partDir, '0.json'), JSON.stringify(toolPart));
+
+        const messages = await reader.getMessages(sessionId);
+
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.content).toContain('bash');
+        expect(messages[0]?.content).toContain('pending');
+      });
+
+      it('should handle multiple tool calls in single message', async () => {
+        const sessionId = 'sess-tool-multiple';
+        const messageId = 'msg-tool-005';
+
+        const messageDir = join(testDir, 'message', sessionId);
+        const partDir = join(testDir, 'part', messageId);
+
+        await mkdir(messageDir, { recursive: true });
+        await mkdir(partDir, { recursive: true });
+
+        const messageData = {
+          id: messageId,
+          sessionID: sessionId,
+          role: 'assistant',
+          time: { created: Date.now() },
+        };
+
+        const toolPart1 = {
+          id: 'part-1',
+          sessionID: sessionId,
+          messageID: messageId,
+          type: 'tool',
+          tool: 'bash',
+          state: {
+            status: 'completed',
+            input: { command: 'ls' },
+            output: 'file1.txt\nfile2.txt\n',
+          },
+        };
+
+        const toolPart2 = {
+          id: 'part-2',
+          sessionID: sessionId,
+          messageID: messageId,
+          type: 'tool',
+          tool: 'Read',
+          state: {
+            status: 'completed',
+            input: { filePath: '/file.txt' },
+            output: 'File contents here',
+          },
+        };
+
+        await writeFile(join(messageDir, `${messageId}.json`), JSON.stringify(messageData));
+        await writeFile(join(partDir, '0.json'), JSON.stringify(toolPart1));
+        await writeFile(join(partDir, '1.json'), JSON.stringify(toolPart2));
+
+        const messages = await reader.getMessages(sessionId);
+
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.content).toContain('bash');
+        expect(messages[0]?.content).toContain('Read');
+        expect(messages[0]?.metadata?.toolExecutions).toHaveLength(2);
+      });
     });
   });
 

@@ -169,3 +169,68 @@ Added debug logging showing:
 3. Both code paths (primary + fallback) must implement the same logic
 4. Debug logging with before/after timestamps helps troubleshooting
 5. Integration tests with real timing (setTimeout) validate race condition fixes
+
+## [2026-01-28 23:33] Task 4: Tool Execution Capture
+
+### Problem
+
+Tool calls showed generic `[Tool calls: bash]` instead of actual execution details (command + output). Users couldn't see what the tool actually did.
+
+### Solution
+
+Extract `state.input` and `state.output` from tool parts and store in metadata.
+
+### Implementation Details
+
+**File**: `src/services/ide-conversation/opencode-reader.ts` lines 144-194
+
+**Key Changes**:
+
+1. Filter tool parts separately to access state
+2. Extract input/output from `p.state` when available
+3. Truncate large outputs (>5KB) with marker
+4. Store full execution details in `metadata.toolExecutions`
+5. Format content preview with input preview (first 100 chars)
+
+**Constants Extracted**:
+
+- `MAX_INPUT_PREVIEW_LENGTH = 100` - Input preview truncation
+- `MAX_OUTPUT_LENGTH = 5000` - Output truncation threshold
+- `TRUNCATION_MARKER = '... [truncated]'` - Truncation indicator
+
+### Pattern: Tool Execution Metadata
+
+```typescript
+toolExecutions: Array<{
+  name: string;
+  input?: unknown;
+  output?: string;
+  status?: string;
+}>;
+```
+
+Stored in `metadata.toolExecutions` for full details while content shows preview.
+
+### Test Coverage
+
+- 5 new test cases added (all passing)
+- Test case 1: Tool with state.input → content shows input preview
+- Test case 2: Tool with large output (>5KB) → truncated with marker
+- Test case 3: Tool without state → graceful fallback
+- Test case 4: Tool with non-completed status → status shown in preview
+- Test case 5: Multiple tool calls → each formatted separately
+
+### Results
+
+- 22 tests pass in opencode-reader.test.ts
+- 9807 total tests pass (exceeds 9802+ baseline)
+- 0 failures, 0 regressions
+- LSP diagnostics: clean
+
+### Learnings
+
+1. JSON.stringify escapes quotes - tests must check for escaped content or use partial matches
+2. Truncation marker adds 15 chars to output length (5000 + "... [truncated]" = 5015)
+3. Tool execution details should be stored separately from preview content
+4. Constants improve readability and maintainability for magic numbers
+5. TDD workflow (RED-GREEN-REFACTOR) ensures comprehensive test coverage

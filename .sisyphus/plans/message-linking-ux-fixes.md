@@ -294,7 +294,7 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
 
 ### Task 4: Capture Full Tool Execution Details (Issue 1)
 
-- [ ] 4. Modify OpenCode reader to capture tool input/output
+- [x] 4. Modify OpenCode reader to capture tool input/output
 
   **What to do**:
   - Write test: message with tool call → content includes tool input summary

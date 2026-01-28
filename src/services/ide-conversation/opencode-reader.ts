@@ -6,6 +6,10 @@ import { createComponentLogger } from '../../utils/logger.js';
 
 const logger = createComponentLogger('opencode-reader');
 
+const MAX_INPUT_PREVIEW_LENGTH = 100;
+const MAX_OUTPUT_LENGTH = 5000;
+const TRUNCATION_MARKER = '... [truncated]';
+
 interface OpenCodeMessageFile {
   id: string;
   sessionID: string;
@@ -141,7 +145,56 @@ export class OpenCodeReader implements IDEConversationReader {
             .map((p) => p.text!)
             .join('\n');
 
-          const toolsUsed = parts.filter((p) => p.type === 'tool' && p.tool).map((p) => p.tool!);
+          const toolParts = parts.filter((p) => p.type === 'tool' && p.tool);
+          const toolsUsed = toolParts.map((p) => p.tool!);
+
+          let toolContent = '';
+          const toolExecutions: Array<{
+            name: string;
+            input?: unknown;
+            output?: string;
+            status?: string;
+          }> = [];
+
+          if (toolParts.length > 0 && !textContent) {
+            toolContent = toolParts
+              .map((p) => {
+                const toolName = p.tool!;
+
+                if (p.state) {
+                  const status = p.state.status || 'unknown';
+                  const input = p.state.input;
+                  const output = p.state.output;
+
+                  let truncatedOutput = output;
+                  if (output && output.length > MAX_OUTPUT_LENGTH) {
+                    truncatedOutput = output.slice(0, MAX_OUTPUT_LENGTH) + TRUNCATION_MARKER;
+                  }
+
+                  toolExecutions.push({ name: toolName, input, output: truncatedOutput, status });
+
+                  let preview = `[${toolName}`;
+                  if (status !== 'completed') {
+                    preview += ` (${status})`;
+                  }
+
+                  if (input) {
+                    const inputStr = JSON.stringify(input);
+                    const inputPreview =
+                      inputStr.length > MAX_INPUT_PREVIEW_LENGTH
+                        ? inputStr.slice(0, MAX_INPUT_PREVIEW_LENGTH) + '...'
+                        : inputStr;
+                    preview += `: ${inputPreview}`;
+                  }
+
+                  preview += ']';
+                  return preview;
+                } else {
+                  return `[Tool calls: ${toolName}]`;
+                }
+              })
+              .join('\n');
+          }
 
           if (!textContent && toolsUsed.length === 0) continue;
 
@@ -149,12 +202,13 @@ export class OpenCodeReader implements IDEConversationReader {
             id: msg.id,
             sessionId: msg.sessionID,
             role: msg.role === 'user' ? 'user' : 'assistant',
-            content: textContent || `[Tool calls: ${toolsUsed.join(', ')}]`,
+            content: textContent || toolContent,
             timestamp,
             toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
             metadata: {
               agent: msg.agent,
               model: msg.model?.modelID,
+              toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
             },
           });
         } catch (err) {
