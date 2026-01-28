@@ -171,9 +171,19 @@ const addHandler: ContextAwareHandler = async (
     }
   }
 
+  // Auto-populate scopeId based on scopeType
+  let finalScopeId = scopeId;
+  if (!finalScopeId) {
+    if (scopeType === 'session' && sessionId) {
+      finalScopeId = sessionId;
+    } else if (scopeType === 'project' && projectId) {
+      finalScopeId = projectId;
+    }
+  }
+
   const episode = await episodeService.create({
     scopeType,
-    scopeId,
+    scopeId: finalScopeId,
     projectId,
     sessionId,
     conversationId,
