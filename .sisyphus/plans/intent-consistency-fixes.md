@@ -296,7 +296,7 @@ Task 7              Task 8
 
 ---
 
-- [ ] 3. Design Decision: Intent Unification Strategy
+- [x] 3. Design Decision: Intent Unification Strategy
 
   **What to do**:
   - Create ADR document at `docs/adr/ADR-001-intent-unification.md`
