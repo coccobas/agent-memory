@@ -55,11 +55,11 @@ Fix 5 message linking UX bugs to ensure: episode queries work correctly, tool ca
 
 ### Definition of Done
 
-- [ ] All 5 issues have failing tests written FIRST
-- [ ] All 5 fixes implemented and tests pass
-- [ ] `bun test` passes with 0 failures
-- [ ] Manual verification: `memory_episode` list returns episodes correctly
-- [ ] Manual verification: Tool calls show execution details in `what_happened`
+- [x] All 5 issues have failing tests written FIRST
+- [x] All 5 fixes implemented and tests pass
+- [x] `bun test` passes with 0 failures
+- [x] Manual verification: `memory_episode` list returns episodes correctly
+- [x] Manual verification: Tool calls show execution details in `what_happened`
 
 ### Must Have
 
@@ -137,7 +137,7 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
 
 ### Task 0: Establish Baseline
 
-- [ ] 0. Run existing tests and verify baseline
+- [x] 0. Run existing tests and verify baseline
 
   **What to do**:
   - Run full test suite to establish baseline state
@@ -154,9 +154,9 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - `tests/` - existing test files
 
   **Acceptance Criteria**:
-  - [ ] `bun test` completes (may have pre-existing failures)
-  - [ ] Document baseline: N tests, M failures
-  - [ ] Test infrastructure confirmed working
+  - [x] `bun test` completes (may have pre-existing failures)
+  - [x] Document baseline: N tests, M failures
+  - [x] Test infrastructure confirmed working
 
   **Commit**: NO (no changes)
 
@@ -187,13 +187,13 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - `tests/integration/episode-message-linking.test.ts` - existing integration tests (pattern reference)
 
   **Acceptance Criteria**:
-  - [ ] Test file created: `tests/unit/episode-scope-detection.test.ts`
-  - [ ] Test: create episode with sessionId → list with sessionId → returns episode
-  - [ ] Test: create episode with scopeType='session' → list with scopeType='session' → returns episode
-  - [ ] `bun test tests/unit/episode-scope-detection.test.ts` → PASS
+  - [x] Test file created: `tests/unit/episode-scope-detection.test.ts`
+  - [x] Test: create episode with sessionId → list with sessionId → returns episode
+  - [x] Test: create episode with scopeType='session' → list with scopeType='session' → returns episode
+  - [x] `bun test tests/unit/episode-scope-detection.test.ts` → PASS
 
   **Manual Execution Verification**:
-  - [ ] Using memory_episode MCP tool:
+  - [x] Using memory_episode MCP tool:
     - Create episode: `{"action": "begin", "sessionId": "<current-session>", "name": "Test Scope"}`
     - List episodes: `{"action": "list", "sessionId": "<current-session>"}`
     - Verify: returned count > 0, episode found
@@ -235,15 +235,15 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - Invalid/null timestamp strings
 
   **Acceptance Criteria**:
-  - [ ] Test file created/updated: `tests/unit/timestamp-normalization.test.ts`
-  - [ ] Test: ISO timestamp with Z → compares correctly
-  - [ ] Test: timestamp with timezone offset → compares correctly
-  - [ ] Test: timestamp with milliseconds → compares correctly
-  - [ ] Test: null/invalid timestamp → doesn't crash
-  - [ ] `bun test tests/unit/timestamp-normalization.test.ts` → PASS
+  - [x] Test file created/updated: `tests/unit/timestamp-normalization.test.ts`
+  - [x] Test: ISO timestamp with Z → compares correctly
+  - [x] Test: timestamp with timezone offset → compares correctly
+  - [x] Test: timestamp with milliseconds → compares correctly
+  - [x] Test: null/invalid timestamp → doesn't crash
+  - [x] `bun test tests/unit/timestamp-normalization.test.ts` → PASS
 
   **Manual Execution Verification**:
-  - [ ] No direct manual test needed - covered by Task 3 verification
+  - [x] No direct manual test needed - covered by Task 3 verification
 
   **Commit**: YES
   - Message: `fix(timestamps): use Date parsing instead of string substring`
@@ -276,14 +276,14 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - `tests/integration/episode-message-linking.test.ts:367-422` - auto-linking tests (pattern reference)
 
   **Acceptance Criteria**:
-  - [ ] Test file created/updated: `tests/integration/episode-late-messages.test.ts`
-  - [ ] Test: message at T+2s after complete → linked
-  - [ ] Test: message at T+10s after complete → NOT linked
-  - [ ] `bun test tests/integration/episode-late-messages.test.ts` → PASS
+  - [x] Test file created/updated: `tests/integration/episode-late-messages.test.ts`
+  - [x] Test: message at T+2s after complete → linked
+  - [x] Test: message at T+10s after complete → NOT linked
+  - [x] `bun test tests/integration/episode-late-messages.test.ts` → PASS
 
   **Manual Execution Verification**:
-  - [ ] Create episode, wait, add message via conversation, complete episode
-  - [ ] Call `what_happened` → verify message appears in messages array
+  - [x] Create episode, wait, add message via conversation, complete episode
+  - [x] Call `what_happened` → verify message appears in messages array
 
   **Commit**: YES
   - Message: `fix(episodes): extend time window to capture late-arriving messages`
@@ -326,16 +326,16 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - Multiple tool calls in single message → format each separately
 
   **Acceptance Criteria**:
-  - [ ] Test file updated: `tests/unit/ide-conversation/opencode-reader.test.ts`
-  - [ ] Test: tool with state.input → content shows input preview
-  - [ ] Test: tool with large output → truncated correctly
-  - [ ] Test: tool with undefined state → graceful fallback
-  - [ ] `bun test tests/unit/ide-conversation/opencode-reader.test.ts` → PASS
+  - [x] Test file updated: `tests/unit/ide-conversation/opencode-reader.test.ts`
+  - [x] Test: tool with state.input → content shows input preview
+  - [x] Test: tool with large output → truncated correctly
+  - [x] Test: tool with undefined state → graceful fallback
+  - [x] `bun test tests/unit/ide-conversation/opencode-reader.test.ts` → PASS
 
   **Manual Execution Verification**:
-  - [ ] Run bash command in this session
-  - [ ] Complete episode
-  - [ ] Call `what_happened` → verify messages show tool execution details, not just `[Tool calls: bash]`
+  - [x] Run bash command in this session
+  - [x] Complete episode
+  - [x] Call `what_happened` → verify messages show tool execution details, not just `[Tool calls: bash]`
 
   **Commit**: YES
   - Message: `feat(ide-conversation): capture full tool execution details`
@@ -370,14 +370,14 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - `tests/unit/librarian/message-enrichment.test.ts` - scoring unit tests (pattern reference)
 
   **Acceptance Criteria**:
-  - [ ] Test file created: `tests/integration/episode-relevance-scoring.test.ts`
-  - [ ] Test: complete episode with messages → messages have relevanceScore set
-  - [ ] Test: complete episode, extraction service unavailable → graceful failure
-  - [ ] `bun test tests/integration/episode-relevance-scoring.test.ts` → PASS
+  - [x] Test file created: `tests/integration/episode-relevance-scoring.test.ts`
+  - [x] Test: complete episode with messages → messages have relevanceScore set
+  - [x] Test: complete episode, extraction service unavailable → graceful failure
+  - [x] `bun test tests/integration/episode-relevance-scoring.test.ts` → PASS
 
   **Manual Execution Verification**:
-  - [ ] Complete an episode with several messages
-  - [ ] Call `what_happened` → verify messages have `relevanceCategory` (not null)
+  - [x] Complete an episode with several messages
+  - [x] Call `what_happened` → verify messages have `relevanceCategory` (not null)
 
   **Commit**: YES
   - Message: `feat(episodes): trigger relevance scoring on episode complete`
@@ -388,7 +388,7 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
 
 ### Task 6: Final Verification
 
-- [ ] 6. Run full test suite and manual end-to-end verification
+- [x] 6. Run full test suite and manual end-to-end verification
 
   **What to do**:
   - Run complete test suite
@@ -405,10 +405,10 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
   - All test files created in Tasks 1-5
 
   **Acceptance Criteria**:
-  - [ ] `bun test` → all tests pass (or only pre-existing failures)
-  - [ ] Manual: episode list with sessionId → returns episodes
-  - [ ] Manual: what_happened → tool calls show execution details
-  - [ ] Manual: what_happened → messages have relevance scores
+  - [x] `bun test` → all tests pass (or only pre-existing failures)
+  - [x] Manual: episode list with sessionId → returns episodes
+  - [x] Manual: what_happened → tool calls show execution details
+  - [x] Manual: what_happened → messages have relevance scores
 
   **Commit**: NO (no changes if all tests pass)
 
@@ -444,10 +444,10 @@ bun test
 
 ### Final Checklist
 
-- [ ] All "Must Have" present
-- [ ] All "Must NOT Have" absent
-- [ ] All tests pass
-- [ ] Episode list with sessionId returns episodes
-- [ ] Tool calls show execution details (not generic labels)
-- [ ] Messages have relevance scores after episode complete
-- [ ] Late messages (within 5s) are captured
+- [x] All "Must Have" present
+- [x] All "Must NOT Have" absent
+- [x] All tests pass
+- [x] Episode list with sessionId returns episodes
+- [x] Tool calls show execution details (not generic labels)
+- [x] Messages have relevance scores after episode complete
+- [x] Late messages (within 5s) are captured
