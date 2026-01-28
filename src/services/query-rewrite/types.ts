@@ -13,14 +13,10 @@ import type { QueryEntryType } from '../../core/query-types.js';
 
 /**
  * Query intent types for classification
+ * @deprecated Use UnifiedIntent from '../intent-detection/unified-intents.js' instead.
+ * Will be removed in next major version. See ADR-001.
  */
-export type QueryIntent =
-  | 'lookup' // Find specific fact
-  | 'how_to' // Procedural guidance
-  | 'debug' // Error/problem solving
-  | 'explore' // Open-ended discovery
-  | 'compare' // Compare options
-  | 'configure'; // Setup/configuration
+export type QueryIntent = 'lookup' | 'how_to' | 'debug' | 'explore' | 'compare' | 'configure';
 
 /**
  * Classification method used

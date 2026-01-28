@@ -335,7 +335,7 @@ Task 7              Task 8
 
 ---
 
-- [ ] 4. Unify Intent Systems
+- [x] 4. Unify Intent Systems
 
   **What to do**:
   - Create `src/services/intent-detection/unified-intents.ts` with merged taxonomy
