@@ -69,6 +69,7 @@ import { stalenessSection } from './sections/staleness.js';
 import { contextBudgetSection } from './sections/contextBudget.js';
 import { compressionSection } from './sections/compression.js';
 import { episodeEnrichmentSection } from './sections/episodeEnrichment.js';
+import { notionSyncSection } from './sections/notion-sync.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -142,6 +143,7 @@ export const configRegistry: ConfigRegistry = {
     compression: compressionSection,
     classifier: classifierSection,
     episodeEnrichment: episodeEnrichmentSection,
+    notionSync: notionSyncSection,
   },
 };
 

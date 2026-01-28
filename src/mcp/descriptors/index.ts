@@ -62,6 +62,7 @@ import { memoryEpisodeDescriptor } from './memory_episode.js';
 import { memoryOpsDescriptor } from './memory_ops.js';
 import { memoryOnboardDescriptor } from './memory_onboard.js';
 import { memoryWalkthroughDescriptor } from './memory_walkthrough.js';
+import { notionSyncDescriptor } from './notion_sync.js';
 
 import {
   type AnyToolDescriptor,
@@ -212,6 +213,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryOnboardDescriptor,
   // Interactive Walkthrough Tutorial
   memoryWalkthroughDescriptor,
+  // Notion Sync
+  notionSyncDescriptor,
 ];
 
 /**
@@ -293,4 +296,5 @@ export {
   memoryOpsDescriptor,
   memoryOnboardDescriptor,
   memoryWalkthroughDescriptor,
+  notionSyncDescriptor,
 };

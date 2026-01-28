@@ -12,8 +12,11 @@ import { nanoid } from 'nanoid';
 import { transactionWithRetry } from '../connection.js';
 import {
   tasks,
+  taskVersions,
   type Task,
   type NewTask,
+  type TaskVersion,
+  type NewTaskVersion,
   type ScopeType,
   type TaskType,
   type TaskDomain,
@@ -21,7 +24,7 @@ import {
   type TaskUrgency,
   type TaskStatus,
 } from '../schema.js';
-import { type PaginationOptions } from './base.js';
+import { generateId, type PaginationOptions, CONFLICT_WINDOW_MS } from './base.js';
 import { normalizePagination, buildScopeConditions } from './entry-utils.js';
 import type { DatabaseDeps } from '../../core/types.js';
 import { createNotFoundError, createValidationError } from '../../core/errors.js';
@@ -32,6 +35,11 @@ const logger = createComponentLogger('tasks-repository');
 // =============================================================================
 // INPUT/OUTPUT TYPES
 // =============================================================================
+
+/** Task with its current version attached */
+export interface TaskWithVersion extends Task {
+  currentVersion?: TaskVersion;
+}
 
 /** Input for creating a new task */
 export interface CreateTaskInput {
@@ -85,6 +93,7 @@ export interface UpdateTaskInput {
   tags?: string[];
   metadata?: Record<string, unknown>;
   updatedBy?: string;
+  changeReason?: string;
 }
 
 /** Filter for listing tasks */
@@ -109,22 +118,41 @@ export interface ListTasksFilter {
 
 export interface ITaskRepository {
   // Standard CRUD
-  create(input: CreateTaskInput): Promise<Task>;
-  getById(id: string): Promise<Task | undefined>;
-  getByIds(ids: string[]): Promise<Task[]>;
-  list(filter?: ListTasksFilter, options?: PaginationOptions): Promise<Task[]>;
-  update(id: string, input: UpdateTaskInput): Promise<Task | undefined>;
+  create(input: CreateTaskInput): Promise<TaskWithVersion>;
+  getById(id: string): Promise<TaskWithVersion | undefined>;
+  getByIds(ids: string[]): Promise<TaskWithVersion[]>;
+  list(filter?: ListTasksFilter, options?: PaginationOptions): Promise<TaskWithVersion[]>;
+  update(id: string, input: UpdateTaskInput): Promise<TaskWithVersion | undefined>;
   deactivate(id: string): Promise<boolean>;
   reactivate(id: string): Promise<boolean>;
   delete(id: string): Promise<boolean>;
 
+  // Version history
+  getHistory(taskId: string): Promise<TaskVersion[]>;
+  getVersion(taskId: string, versionNum: number): Promise<TaskVersion | undefined>;
+
   // Task-specific operations
-  updateStatus(id: string, status: TaskStatus, updatedBy?: string): Promise<Task | undefined>;
-  listByStatus(status: TaskStatus, filter?: Omit<ListTasksFilter, 'status'>): Promise<Task[]>;
-  listBlocked(): Promise<Task[]>;
-  getSubtasks(parentTaskId: string): Promise<Task[]>;
-  addBlocker(taskId: string, blockerId: string, updatedBy?: string): Promise<Task | undefined>;
-  removeBlocker(taskId: string, blockerId: string, updatedBy?: string): Promise<Task | undefined>;
+  updateStatus(
+    id: string,
+    status: TaskStatus,
+    updatedBy?: string
+  ): Promise<TaskWithVersion | undefined>;
+  listByStatus(
+    status: TaskStatus,
+    filter?: Omit<ListTasksFilter, 'status'>
+  ): Promise<TaskWithVersion[]>;
+  listBlocked(): Promise<TaskWithVersion[]>;
+  getSubtasks(parentTaskId: string): Promise<TaskWithVersion[]>;
+  addBlocker(
+    taskId: string,
+    blockerId: string,
+    updatedBy?: string
+  ): Promise<TaskWithVersion | undefined>;
+  removeBlocker(
+    taskId: string,
+    blockerId: string,
+    updatedBy?: string
+  ): Promise<TaskWithVersion | undefined>;
 }
 
 // =============================================================================
@@ -199,15 +227,22 @@ function serializeMetadata(metadata: Record<string, unknown> | undefined): strin
 export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
   const { db, sqlite } = deps;
 
-  // Helper to get a task by ID
-  function getByIdSync(id: string): Task | undefined {
-    return db.select().from(tasks).where(eq(tasks.id, id)).get();
+  function getByIdSync(id: string): TaskWithVersion | undefined {
+    const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
+    if (!task) return undefined;
+
+    const currentVersion = task.currentVersionId
+      ? db.select().from(taskVersions).where(eq(taskVersions.id, task.currentVersionId)).get()
+      : undefined;
+
+    return { ...task, currentVersion };
   }
 
   const repo: ITaskRepository = {
-    async create(input: CreateTaskInput): Promise<Task> {
+    async create(input: CreateTaskInput): Promise<TaskWithVersion> {
       return await transactionWithRetry(sqlite, () => {
         const taskId = generateTaskId();
+        const versionId = generateId();
         const now = new Date().toISOString();
 
         const entry: NewTask = {
@@ -239,9 +274,27 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
           updatedAt: now,
           updatedBy: input.createdBy,
           isActive: true,
+          currentVersionId: null,
         };
 
         db.insert(tasks).values(entry).run();
+
+        const version: NewTaskVersion = {
+          id: versionId,
+          taskId,
+          versionNum: 1,
+          title: input.title,
+          description: input.description,
+          status: input.status ?? 'open',
+          resolution: input.resolution,
+          metadata: input.metadata,
+          createdBy: input.createdBy,
+          changeReason: 'Initial version',
+        };
+
+        db.insert(taskVersions).values(version).run();
+
+        db.update(tasks).set({ currentVersionId: versionId }).where(eq(tasks.id, taskId)).run();
 
         const result = getByIdSync(taskId);
         if (!result) {
@@ -308,16 +361,54 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         .all();
     },
 
-    async update(id: string, input: UpdateTaskInput): Promise<Task | undefined> {
+    async update(id: string, input: UpdateTaskInput): Promise<TaskWithVersion | undefined> {
       return await transactionWithRetry(sqlite, () => {
         const existing = getByIdSync(id);
         if (!existing) return undefined;
 
         const now = new Date().toISOString();
 
+        const latestVersion = db
+          .select()
+          .from(taskVersions)
+          .where(eq(taskVersions.taskId, id))
+          .orderBy(desc(taskVersions.versionNum))
+          .get();
+
+        const newVersionNum = (latestVersion?.versionNum ?? 0) + 1;
+        const newVersionId = generateId();
+
+        let conflictFlag = false;
+        if (latestVersion) {
+          const currentTime = Date.now();
+          const createdAtUtc = latestVersion.createdAt.endsWith('Z')
+            ? latestVersion.createdAt
+            : latestVersion.createdAt + 'Z';
+          const lastTime = new Date(createdAtUtc).getTime();
+          conflictFlag = currentTime - lastTime < CONFLICT_WINDOW_MS;
+        }
+
+        const previousVersion = existing.currentVersion;
+        const newVersion: NewTaskVersion = {
+          id: newVersionId,
+          taskId: id,
+          versionNum: newVersionNum,
+          title: input.title ?? previousVersion?.title,
+          description: input.description ?? previousVersion?.description,
+          status: input.status ?? previousVersion?.status,
+          resolution: input.resolution ?? previousVersion?.resolution,
+          metadata: input.metadata ?? previousVersion?.metadata,
+          createdBy: input.updatedBy,
+          changeReason: input.changeReason,
+          conflictFlag,
+        };
+
+        db.insert(taskVersions).values(newVersion).run();
+
         const updates: Partial<NewTask> = {
           updatedAt: now,
           updatedBy: input.updatedBy,
+          currentVersionId: newVersionId,
         };
 
         if (input.title !== undefined) updates.title = input.title;
@@ -328,7 +419,6 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
         if (input.urgency !== undefined) updates.urgency = input.urgency;
         if (input.status !== undefined) {
           updates.status = input.status;
-          // Auto-set timestamps based on status transitions
           if (input.status === 'in_progress' && !existing.startedAt) {
             updates.startedAt = now;
           }
@@ -378,14 +468,28 @@ export function createTaskRepository(deps: DatabaseDeps): ITaskRepository {
 
     async delete(id: string): Promise<boolean> {
       return await transactionWithRetry(sqlite, () => {
-        // Delete related records (tags, relations, etc.)
-        // Note: Tasks use 'task' as entry type if supported, otherwise skip
-        // For now, tasks don't have entry tags/relations in the same way
+        db.delete(taskVersions).where(eq(taskVersions.taskId, id)).run();
 
-        // Delete the task
         const deleteResult = db.delete(tasks).where(eq(tasks.id, id)).run();
         return deleteResult.changes > 0;
       });
+    },
+
+    async getHistory(taskId: string): Promise<TaskVersion[]> {
+      return db
+        .select()
+        .from(taskVersions)
+        .where(eq(taskVersions.taskId, taskId))
+        .orderBy(asc(taskVersions.versionNum))
+        .all();
+    },
+
+    async getVersion(taskId: string, versionNum: number): Promise<TaskVersion | undefined> {
+      return db
+        .select()
+        .from(taskVersions)
+        .where(and(eq(taskVersions.taskId, taskId), eq(taskVersions.versionNum, versionNum)))
+        .get();
     },
 
     // Task-specific operations

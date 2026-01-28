@@ -26,7 +26,7 @@ export const memoryTaskDescriptor: ToolDescriptor = {
   name: 'memory_task',
   visibility: 'standard',
   description:
-    'Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, add_blocker, remove_blocker, get_subtasks, preview, confirm, reject',
+    'Manage work items (bugs, features, tasks). Actions: add, update, get, list, deactivate, delete, update_status, list_by_status, list_blocked, add_blocker, remove_blocker, get_subtasks, history, preview, confirm, reject',
   commonParams: {
     id: { type: 'string' },
     title: { type: 'string' },
@@ -81,6 +81,7 @@ export const memoryTaskDescriptor: ToolDescriptor = {
     add_blocker: { contextHandler: issueHandlers.add_blocker },
     remove_blocker: { contextHandler: issueHandlers.remove_blocker },
     get_subtasks: { contextHandler: issueHandlers.get_subtasks },
+    history: { contextHandler: issueHandlers.history },
     preview: { contextHandler: issueHandlers.preview },
     confirm: { contextHandler: issueHandlers.confirm },
     reject: { contextHandler: issueHandlers.reject },

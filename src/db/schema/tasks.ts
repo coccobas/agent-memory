@@ -6,7 +6,7 @@
  * (manual human-managed) workflow domains.
  */
 
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -125,6 +125,9 @@ export const tasks = sqliteTable(
 
     // Soft delete
     isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+
+    // Version history
+    currentVersionId: text('current_version_id'),
   },
   (table) => [
     index('idx_tasks_scope').on(table.scopeType, table.scopeId),
@@ -141,6 +144,36 @@ export const tasks = sqliteTable(
   ]
 );
 
+export const taskVersions = sqliteTable(
+  'task_versions',
+  {
+    id: text('id').primaryKey(),
+    taskId: text('task_id')
+      .references(() => tasks.id, { onDelete: 'cascade' })
+      .notNull(),
+    versionNum: integer('version_num').notNull(),
+    title: text('title'),
+    description: text('description'),
+    status: text('status', {
+      enum: ['backlog', 'open', 'in_progress', 'blocked', 'review', 'done', 'wont_do'],
+    }),
+    resolution: text('resolution'),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
+    createdAt: text('created_at')
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    createdBy: text('created_by'),
+    changeReason: text('change_reason'),
+    conflictFlag: integer('conflict_flag', { mode: 'boolean' }).default(false).notNull(),
+  },
+  (table) => [
+    index('idx_task_versions_task').on(table.taskId),
+    uniqueIndex('idx_task_versions_unique').on(table.taskId, table.versionNum),
+  ]
+);
+
 // Type exports
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
+export type TaskVersion = typeof taskVersions.$inferSelect;
+export type NewTaskVersion = typeof taskVersions.$inferInsert;

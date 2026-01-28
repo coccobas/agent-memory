@@ -892,6 +892,36 @@ const rejectHandler: ContextAwareHandler = async (
   };
 };
 
+/**
+ * Get version history for a task
+ */
+const historyHandler: ContextAwareHandler = async (
+  context: AppContext,
+  params: Record<string, unknown>
+) => {
+  const repo = getTaskRepo(context);
+
+  const id = getRequiredParam(params, 'id', isString);
+
+  // Verify task exists
+  const task = await repo.getById(id);
+  if (!task) {
+    throw createNotFoundError('task', id);
+  }
+
+  const versions = await repo.getHistory(id);
+
+  return formatTimestamps({
+    taskId: id,
+    taskTitle: task.title,
+    versions,
+    meta: {
+      versionCount: versions.length,
+      currentVersionNum: task.currentVersion?.versionNum ?? 1,
+    },
+  });
+};
+
 export const issueHandlers = {
   add: addHandler,
   update: updateHandler,
@@ -908,4 +938,5 @@ export const issueHandlers = {
   preview: previewHandler,
   confirm: confirmHandler,
   reject: rejectHandler,
+  history: historyHandler,
 };
