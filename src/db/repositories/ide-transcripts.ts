@@ -252,6 +252,13 @@ export function createIDETranscriptRepository(deps: DatabaseDeps): IIDETranscrip
         .run();
     },
 
+    async updateIDESessionId(transcriptId: string, ideSessionId: string): Promise<void> {
+      db.update(ideTranscripts)
+        .set({ ideSessionId })
+        .where(eq(ideTranscripts.id, transcriptId))
+        .run();
+    },
+
     async linkMessagesToEpisode(params: {
       episodeId: string;
       transcriptId: string;
@@ -260,8 +267,14 @@ export function createIDETranscriptRepository(deps: DatabaseDeps): IIDETranscrip
     }): Promise<number> {
       const { episodeId, transcriptId, startTime, endTime } = params;
 
-      // Normalize timestamps to handle both ISO and SQLite formats
-      const normalizeTimestamp = (ts: string) => ts.replace('T', ' ').replace('Z', '').slice(0, 19);
+      // Normalize timestamps using proper Date parsing to handle timezone offsets and milliseconds
+      const normalizeTimestamp = (ts: string): string => {
+        const date = new Date(ts);
+        if (isNaN(date.getTime())) {
+          throw new Error(`Invalid timestamp: ${ts}`);
+        }
+        return date.toISOString().replace('T', ' ').slice(0, 19);
+      };
       const normalizedStart = normalizeTimestamp(startTime);
       const normalizedEnd = normalizeTimestamp(endTime);
 

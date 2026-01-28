@@ -51,3 +51,64 @@ if (!finalScopeId) {
 - All 4 unit tests pass
 - Full test suite: 9788 tests pass, 0 failures
 - No regressions introduced
+
+## Task 2: Timestamp Normalization (2026-01-28)
+
+### Problem
+
+- Original code used fragile string manipulation: `ts.slice(0, 19)` after `replace('T', ' ').replace('Z', '')`
+- Failed on timezone offsets (e.g., `+05:30`, `-05:00`)
+- Failed on milliseconds (e.g., `.123`)
+- No validation for null/undefined inputs
+- String comparison instead of proper Date parsing
+
+### Solution
+
+Replaced string manipulation with proper Date parsing:
+
+```typescript
+const normalizeTimestamp = (ts: string): string => {
+  const date = new Date(ts);
+  if (isNaN(date.getTime())) {
+    throw new Error(`Invalid timestamp: ${ts}`);
+  }
+  return date.toISOString().replace('T', ' ').slice(0, 19);
+};
+```
+
+### Key Insight
+
+- SQLite's `CURRENT_TIMESTAMP` returns `YYYY-MM-DD HH:MM:SS` format (space, not T)
+- Must convert ISO format to SQLite format for SQL BETWEEN comparisons
+- `date.toISOString()` handles all timezone offsets and milliseconds correctly
+- Then convert back to SQLite format with `.replace('T', ' ').slice(0, 19)`
+
+### Files Modified
+
+- `src/db/repositories/ide-transcripts.ts` line 270-277
+- `src/db/repositories/conversations.ts` line 520-527
+
+### Tests Created
+
+- `tests/unit/timestamp-normalization.test.ts` - 12 comprehensive test cases
+  - ISO 8601 with Z suffix
+  - Timezone offsets (+05:30, -05:00)
+  - Milliseconds preservation
+  - Null/undefined handling
+  - Invalid format error handling
+  - Numeric comparison verification
+  - BETWEEN comparison logic
+
+### Test Results
+
+- 12 new tests added (all passing)
+- Full suite: 9800 tests passing, 0 failures
+- No regressions in integration tests
+- Episode message linking now works correctly
+
+### Pattern Applied
+
+- TDD workflow: RED → GREEN → REFACTOR
+- Consistent implementation across both repository files
+- Proper error handling with descriptive messages
+- Maintains backward compatibility with SQL queries

@@ -517,7 +517,14 @@ export function createConversationRepository(deps: DatabaseDeps): IConversationR
 
       const conversationIds = sessionConversations.map((c) => c.id);
 
-      const normalizeTimestamp = (ts: string) => ts.replace('T', ' ').replace('Z', '').slice(0, 19);
+      // Normalize timestamps using proper Date parsing to handle timezone offsets and milliseconds
+      const normalizeTimestamp = (ts: string): string => {
+        const date = new Date(ts);
+        if (isNaN(date.getTime())) {
+          throw new Error(`Invalid timestamp: ${ts}`);
+        }
+        return date.toISOString().replace('T', ' ').slice(0, 19);
+      };
       const normalizedStart = normalizeTimestamp(startTime);
       const normalizedEnd = normalizeTimestamp(endTime);
 
