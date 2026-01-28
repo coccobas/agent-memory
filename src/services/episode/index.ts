@@ -26,6 +26,9 @@ import { createNotFoundError } from '../../core/errors.js';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { IDEConversationImporter } from '../ide-conversation/index.js';
 import type { IUnifiedMessageSource } from '../unified-message-source.js';
+import type { IExtractionService } from '../../core/context.js';
+import type { AppDb } from '../../core/types.js';
+import { runMessageRelevanceScoring } from '../librarian/maintenance/message-relevance-scoring.js';
 
 const logger = createComponentLogger('episode-service');
 
@@ -106,6 +109,10 @@ export interface EpisodeServiceDeps {
   ideImporter?: IDEConversationImporter;
   /** IDE session ID to import messages from (required if ideImporter is provided) */
   getIDESessionId?: () => Promise<string | null>;
+  /** Optional database connection for relevance scoring */
+  db?: AppDb;
+  /** Optional extraction service for relevance scoring */
+  extractionService?: IExtractionService;
 }
 
 export function createEpisodeService(deps: EpisodeServiceDeps) {
@@ -117,6 +124,8 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
     unifiedMessageSource,
     ideImporter,
     getIDESessionId,
+    db,
+    extractionService,
   } = deps;
 
   async function importAndLinkMessages(
@@ -279,6 +288,56 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         episode,
         options?.conversationId
       );
+
+      try {
+        if (messagesLinked > 0 && db && extractionService) {
+          logger.debug(
+            { episodeId: episode.id, messagesLinked },
+            'Triggering relevance scoring for episode messages'
+          );
+
+          const scoringResult = await runMessageRelevanceScoring(
+            {
+              db,
+              extractionService,
+            },
+            {
+              scopeType: 'project',
+              scopeId: episode.projectId ?? undefined,
+              initiatedBy: 'episode-complete',
+            },
+            {
+              enabled: true,
+              maxMessagesPerRun: 100,
+              thresholds: {
+                high: 0.8,
+                medium: 0.5,
+                low: 0.0,
+              },
+            }
+          );
+
+          if (scoringResult.executed && scoringResult.messagesScored > 0) {
+            logger.debug(
+              {
+                episodeId: episode.id,
+                messagesScored: scoringResult.messagesScored,
+                byCategory: scoringResult.byCategory,
+                durationMs: scoringResult.durationMs,
+              },
+              'Relevance scoring completed for episode messages'
+            );
+          }
+        }
+      } catch (error) {
+        logger.warn(
+          {
+            episodeId: episode.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to score message relevance (non-fatal)'
+        );
+      }
 
       return { ...episode, messagesLinked, messagesImported };
     },

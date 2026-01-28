@@ -234,3 +234,83 @@ Stored in `metadata.toolExecutions` for full details while content shows preview
 3. Tool execution details should be stored separately from preview content
 4. Constants improve readability and maintainability for magic numbers
 5. TDD workflow (RED-GREEN-REFACTOR) ensures comprehensive test coverage
+
+## [2026-01-28 23:45] Task 5: Relevance Scoring Trigger (FINAL CORE FIX) ✅
+
+### Problem
+
+Relevance scoring never ran automatically after episode completion. The `runMessageRelevanceScoring` function existed but was never called, leaving messages unscored and making relevance-based filtering impossible.
+
+### Solution
+
+Added relevance scoring trigger to `episode.complete()` function after message linking completes.
+
+### Implementation Details
+
+**Files Modified:**
+
+1. `src/services/episode/index.ts` - Added scoring trigger in complete() function
+2. `src/core/factory/context-wiring.ts` - Passed db and extractionService to episode service
+3. `tests/integration/episode-relevance-scoring.test.ts` - Created 3 test cases
+
+**Key Changes:**
+
+- Added `db` and `extractionService` to `EpisodeServiceDeps` interface
+- Imported `runMessageRelevanceScoring` from maintenance module
+- Added try-catch block after `importAndLinkMessages()` to trigger scoring
+- Non-fatal error handling: scoring failures don't crash episode completion
+- Debug logging for scoring execution and results
+
+**Pattern Used:**
+
+```typescript
+try {
+  if (messagesLinked > 0 && db && extractionService) {
+    const scoringResult = await runMessageRelevanceScoring(
+      { db, extractionService },
+      { scopeType: 'project', scopeId: episode.projectId ?? undefined, initiatedBy: 'episode-complete' },
+      { enabled: true, maxMessagesPerRun: 100, thresholds: { high: 0.8, medium: 0.5, low: 0.0 } }
+    );
+    // Log results
+  }
+} catch (error) {
+  logger.warn({ episodeId: episode.id, error: ... }, 'Failed to score message relevance (non-fatal)');
+}
+```
+
+### Test Results
+
+- RED phase: 1 test failed (messagesLinked was 0)
+- GREEN phase: 3 tests pass (all scenarios covered)
+- Full suite: 9810 tests pass (+3 new tests, 0 failures)
+- No regressions detected
+
+### Test Coverage
+
+1. **Test 1**: Episode with messages → scoring runs → messages have relevanceScore/relevanceCategory
+2. **Test 2**: Extraction service unavailable → graceful failure (non-fatal)
+3. **Test 3**: Episode with no messages → doesn't crash
+
+### Key Insights
+
+- Scoring is optional: if extractionService unavailable, episode still completes successfully
+- Scoring only runs if messages were linked (messagesLinked > 0)
+- Non-fatal error handling ensures episode completion is never blocked by scoring failures
+- Debug logging helps troubleshoot scoring execution in production
+
+### Dependencies
+
+- Requires `db` connection (AppDb) - passed from context
+- Requires `extractionService` (IExtractionService) - optional, gracefully skipped if unavailable
+- Uses existing `runMessageRelevanceScoring` function from maintenance module
+
+### Verification
+
+✅ Tests pass: 9810 total (9807 baseline + 3 new)
+✅ No regressions: All existing tests still pass
+✅ Error handling: Non-fatal, doesn't block episode completion
+✅ Logging: Debug and warn levels for troubleshooting
+
+### Status: COMPLETE ✅
+
+All 5 core fixes now complete. Message linking UX fully functional.

@@ -301,6 +301,8 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       unifiedMessageSource,
       ideImporter,
       getIDESessionId,
+      db,
+      extractionService: services.extraction,
     });
     services.episode = episodeService;
     logger.debug('Episode service initialized');

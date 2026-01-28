@@ -346,7 +346,7 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
 
 ### Task 5: Trigger Relevance Scoring on Episode Complete (Issue 3)
 
-- [ ] 5. Add relevance scoring trigger after episode.complete()
+- [x] 5. Add relevance scoring trigger after episode.complete()
 
   **What to do**:
   - Write test: episode.complete() → relevance scoring runs → messages have scores
