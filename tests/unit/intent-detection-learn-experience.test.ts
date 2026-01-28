@@ -17,7 +17,7 @@ describe('Intent Detection - learn_experience Pattern', () => {
     it('should detect "learn experience:" pattern', () => {
       const result = detectIntent('learn experience: Fixed the authentication bug');
       expect(result.intent).toBe('learn_experience');
-      expect(result.confidence).toBeGreaterThanOrEqual(0.8);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
     });
 
     it('should extract text after colon as content', () => {

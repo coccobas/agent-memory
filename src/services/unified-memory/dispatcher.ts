@@ -32,6 +32,7 @@ export interface DispatchResult {
     | 'episode_log'
     | 'episode_complete'
     | 'episode_query'
+    | 'learn_experience'
     | 'error';
   status: 'success' | 'duplicate_detected' | 'not_found' | 'error' | 'low_confidence';
   message?: string;
@@ -135,6 +136,8 @@ export async function dispatch(
         return await handleEpisodeComplete(intent, deps);
       case 'episode_query':
         return await handleEpisodeQuery(intent, deps);
+      case 'learn_experience':
+        return await handleLearnExperience(intent, deps);
       case 'unknown':
       default:
         return {
@@ -777,6 +780,59 @@ async function handleEpisodeQuery(
     action: 'episode_query',
     status: 'error',
     message: 'Specify an episode ID or ensure you have an active session.',
+    _context: { projectId, sessionId, agentId },
+  };
+}
+
+// =============================================================================
+// EXPERIENCE HANDLERS
+// =============================================================================
+
+async function handleLearnExperience(
+  intent: IntentDetectionResult,
+  deps: DispatcherDeps
+): Promise<DispatchResult> {
+  const { context, projectId, sessionId, agentId } = deps;
+
+  const text = intent.text ?? intent.content;
+
+  if (!text) {
+    return {
+      action: 'learn_experience',
+      status: 'error',
+      message: 'No content provided. Use: "learn experience: <what you learned>"',
+      _context: { projectId, sessionId, agentId },
+    };
+  }
+
+  if (!context.repos.experiences) {
+    return {
+      action: 'learn_experience',
+      status: 'error',
+      message: 'Experience repository not available',
+      _context: { projectId, sessionId, agentId },
+    };
+  }
+
+  const experience = await context.repos.experiences.create({
+    scopeType: projectId ? 'project' : 'global',
+    scopeId: projectId ?? undefined,
+    title: text.length > 50 ? text.substring(0, 47) + '...' : text,
+    content: text,
+    level: 'case',
+    source: 'user',
+    createdBy: agentId,
+  });
+
+  return {
+    action: 'learn_experience',
+    status: 'success',
+    message: `Learned: "${experience.title}"`,
+    entry: {
+      id: experience.id,
+      type: 'experience',
+      title: experience.title,
+    },
     _context: { projectId, sessionId, agentId },
   };
 }

@@ -40,6 +40,7 @@ export interface IntentDetectionResult {
   outcome?: string;
   outcomeType?: string;
   ref?: string;
+  text?: string;
   rawPatterns: string[];
 }
 
@@ -131,6 +132,9 @@ export class IntentDetectionService implements IIntentDetectionService {
     }
     if (match.extractedParams.ref) {
       result.ref = match.extractedParams.ref;
+    }
+    if (match.extractedParams.text) {
+      result.text = match.extractedParams.text;
     }
     if (match.extractedParams.tagFilter) {
       result.tagFilter = match.extractedParams.tagFilter;

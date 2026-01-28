@@ -199,7 +199,7 @@ Task 7              Task 8
 
 ---
 
-- [ ] 1. Add "learn experience:" Pattern
+- [x] 1. Add "learn experience:" Pattern
 
   **What to do**:
   - Add `learn_experience` to Intent type union in `patterns.ts`

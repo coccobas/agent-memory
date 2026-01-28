@@ -24,6 +24,7 @@ export type Intent =
   | 'episode_log'
   | 'episode_complete'
   | 'episode_query'
+  | 'learn_experience'
   | 'unknown';
 
 export interface IntentMatch {
@@ -81,6 +82,11 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
     /^(trace|follow)\s+(the\s+)?(causes?|chain)/i,
     /^(timeline|history)\s+(of|for)\s+/i,
   ],
+
+  // Experience learning (routes to memory_experience.learn)
+  // Must be before store to have higher specificity
+  // Negation patterns (don't/do not/never) are excluded via negative lookahead
+  learn_experience: [/^(?!(?:don'?t|do\s+not|never)\s+)learn\s+experience:\s*/i],
 
   // Storage operations
   store: [
@@ -533,7 +539,6 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'episode_query': {
-      // Extract episode reference from "what happened during X"
       const ref = text
         .replace(/^what\s+happened\s+(during|in)\s+/i, '')
         .replace(/^(show|tell\s+me)\s+what\s+happened\s+(during|in)?\s*/i, '')
@@ -541,6 +546,15 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
         .replace(/^(timeline|history)\s+(of|for)\s+/i, '')
         .trim();
       params.ref = ref;
+      break;
+    }
+    case 'learn_experience': {
+      const extractedText = text.replace(/^\s*learn\s+experience:\s*/i, '').trim();
+      if (extractedText) {
+        params.text = extractedText;
+      } else {
+        params.error = 'empty_content';
+      }
       break;
     }
   }
