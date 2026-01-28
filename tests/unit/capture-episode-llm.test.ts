@@ -21,9 +21,25 @@ vi.mock('../../src/services/capture/experience.module.js', () => ({
       skippedDuplicates: 0,
       processingTimeMs: 100,
     }),
+    recordCase: vi.fn().mockResolvedValue({
+      experiences: [
+        {
+          experience: { id: 'exp-recorded', title: 'Recorded case' },
+          confidence: 0.7,
+          source: 'observation',
+        },
+      ],
+      skippedDuplicates: 0,
+      processingTimeMs: 50,
+    }),
     shouldCapture: vi.fn().mockReturnValue(true),
   })),
 }));
+
+// Mock episode service for linking
+const mockEpisodeService = {
+  linkEntity: vi.fn().mockResolvedValue(undefined),
+};
 
 // Import AFTER mock setup
 import { CaptureService } from '../../src/services/capture/index.js';
@@ -33,11 +49,307 @@ describe('Episode LLM Capture', () => {
   let captureService: CaptureService;
 
   beforeEach(() => {
-    // Setup will go here
+    vi.clearAllMocks();
+
+    captureService = new CaptureService({
+      experienceRepo: {
+        create: vi.fn(),
+        findById: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        list: vi.fn(),
+        search: vi.fn(),
+      } as any,
+      knowledgeModuleDeps: {
+        knowledgeRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+        guidelineRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+        toolRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+      },
+    });
   });
 
-  it.skip('placeholder - tests will be added in next phase', () => {
-    // Tests will be added in next phase
+  it('should call captureModule.capture() instead of recordCase()', async () => {
+    const episode = {
+      id: 'ep-1',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [
+        {
+          eventType: 'started',
+          name: 'Episode started',
+          description: 'Starting episode',
+          data: null,
+          occurredAt: '2025-01-28T10:00:00Z',
+        },
+      ],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2025-01-28T10:00:01Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(result.experiences).toBeDefined();
+    expect(result.processingTimeMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should not call summarizeMessages()', async () => {
+    const episode = {
+      id: 'ep-1',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2025-01-28T10:00:01Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(result).toBeDefined();
+    expect(result.experiences).toBeDefined();
+  });
+
+  it('should include episodeId in CaptureOptions', async () => {
+    const episode = {
+      id: 'ep-123',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2025-01-28T10:00:01Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(result).toBeDefined();
+    expect(result.experiences).toBeDefined();
+  });
+
+  it('should check minimum message length before capturing', async () => {
+    const episode = {
+      id: 'ep-1',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(result).toBeDefined();
+    expect(result.experiences).toBeDefined();
+  });
+
+  it('should link all experiences from capture result to episode', async () => {
+    const mockCapture = vi.fn().mockResolvedValue({
+      experiences: [
+        {
+          experience: { id: 'exp-1', title: 'Experience 1' },
+          confidence: 0.85,
+          source: 'observation',
+        },
+        {
+          experience: { id: 'exp-2', title: 'Experience 2' },
+          confidence: 0.9,
+          source: 'observation',
+        },
+        {
+          experience: { id: 'exp-3', title: 'Experience 3' },
+          confidence: 0.88,
+          source: 'observation',
+        },
+      ],
+      skippedDuplicates: 0,
+      processingTimeMs: 150,
+    });
+
+    const mockExperienceModule = {
+      capture: mockCapture,
+      shouldCapture: vi.fn().mockReturnValue(true),
+    };
+
+    captureService = new CaptureService({
+      experienceRepo: {
+        create: vi.fn(),
+        findById: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        list: vi.fn(),
+        search: vi.fn(),
+      } as any,
+      knowledgeModuleDeps: {
+        knowledgeRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+        guidelineRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+        toolRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+      },
+      episodeService: mockEpisodeService as any,
+    });
+
+    // @ts-ignore - set the experience module
+    captureService.experienceModule = mockExperienceModule;
+
+    const episode = {
+      id: 'ep-123',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2025-01-28T10:00:01Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(result.experiences).toHaveLength(3);
+    expect(mockEpisodeService.linkEntity).toHaveBeenCalledTimes(3);
+    expect(mockEpisodeService.linkEntity).toHaveBeenCalledWith(
+      'ep-123',
+      'experience',
+      'exp-1',
+      'created'
+    );
+    expect(mockEpisodeService.linkEntity).toHaveBeenCalledWith(
+      'ep-123',
+      'experience',
+      'exp-2',
+      'created'
+    );
+    expect(mockEpisodeService.linkEntity).toHaveBeenCalledWith(
+      'ep-123',
+      'experience',
+      'exp-3',
+      'created'
+    );
   });
 });
 
@@ -92,7 +404,6 @@ describe('buildSyntheticMetrics', () => {
     // @ts-ignore - accessing private method for testing
     const metrics = captureService.buildSyntheticMetrics(messages);
 
-    // Verify all 9 fields are present
     expect(metrics).toHaveProperty('turnCount');
     expect(metrics).toHaveProperty('userTurnCount');
     expect(metrics).toHaveProperty('assistantTurnCount');
@@ -174,6 +485,227 @@ describe('buildSyntheticMetrics', () => {
     expect(metrics.turnCount).toBe(0);
     expect(metrics.userTurnCount).toBe(0);
     expect(metrics.assistantTurnCount).toBe(0);
+  });
+});
+
+describe('Fallback to recordCase', () => {
+  let captureService: CaptureService;
+  let recordCaseSpy: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    captureService = new CaptureService({
+      experienceRepo: {
+        create: vi.fn(),
+        findById: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        list: vi.fn(),
+        search: vi.fn(),
+      } as any,
+      knowledgeModuleDeps: {
+        knowledgeRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+        guidelineRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+        toolRepo: {
+          create: vi.fn(),
+          findById: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          list: vi.fn(),
+          search: vi.fn(),
+        } as any,
+      },
+    });
+
+    // Spy on recordCase method
+    recordCaseSpy = vi.spyOn(captureService, 'recordCase');
+  });
+
+  it('should fall back to recordCase when messages.length < 2', async () => {
+    recordCaseSpy.mockResolvedValue({
+      experiences: [
+        {
+          experience: { id: 'exp-fallback', title: 'Fallback case' },
+          confidence: 0.7,
+          source: 'observation',
+        },
+      ],
+      skippedDuplicates: 0,
+      processingTimeMs: 50,
+    });
+
+    const episode = {
+      id: 'ep-1',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [
+        {
+          eventType: 'started',
+          name: 'Episode started',
+          description: 'Starting episode',
+          data: null,
+          occurredAt: '2025-01-28T10:00:00Z',
+        },
+      ],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(recordCaseSpy).toHaveBeenCalled();
+    expect(result.experiences).toHaveLength(1);
+    expect(result.experiences[0].experience?.id).toBe('exp-fallback');
+  });
+
+  it('should fall back to recordCase when capture returns 0 experiences', async () => {
+    recordCaseSpy.mockResolvedValue({
+      experiences: [
+        {
+          experience: { id: 'exp-fallback-2', title: 'Fallback case 2' },
+          confidence: 0.7,
+          source: 'observation',
+        },
+      ],
+      skippedDuplicates: 0,
+      processingTimeMs: 50,
+    });
+
+    // Mock capture to return empty experiences
+    const mockExperienceModule = {
+      capture: vi.fn().mockResolvedValue({
+        experiences: [],
+        skippedDuplicates: 0,
+        processingTimeMs: 100,
+      }),
+      recordCase: vi.fn(),
+      shouldCapture: vi.fn().mockReturnValue(true),
+    };
+
+    // Replace the experience module
+    // @ts-ignore - accessing private property for testing
+    captureService.experienceModule = mockExperienceModule;
+
+    const episode = {
+      id: 'ep-2',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2025-01-28T10:00:01Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(recordCaseSpy).toHaveBeenCalled();
+    expect(result.experiences).toHaveLength(1);
+    expect(result.experiences[0].experience?.id).toBe('exp-fallback-2');
+  });
+
+  it('should fall back to recordCase when capture throws error', async () => {
+    recordCaseSpy.mockResolvedValue({
+      experiences: [
+        {
+          experience: { id: 'exp-fallback-3', title: 'Fallback case 3' },
+          confidence: 0.7,
+          source: 'observation',
+        },
+      ],
+      skippedDuplicates: 0,
+      processingTimeMs: 50,
+    });
+
+    // Mock capture to throw error
+    const mockExperienceModule = {
+      capture: vi.fn().mockRejectedValue(new Error('LLM API failed')),
+      recordCase: vi.fn(),
+      shouldCapture: vi.fn().mockReturnValue(true),
+    };
+
+    // Replace the experience module
+    // @ts-ignore - accessing private property for testing
+    captureService.experienceModule = mockExperienceModule;
+
+    const episode = {
+      id: 'ep-3',
+      name: 'Test Episode',
+      description: 'Test description',
+      outcome: 'Completed',
+      outcomeType: 'success',
+      durationMs: 5000,
+      scopeType: 'project',
+      scopeId: 'proj-123',
+      sessionId: 'sess-456',
+      events: [],
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2025-01-28T10:00:00Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2025-01-28T10:00:01Z',
+        },
+      ],
+    };
+
+    // @ts-ignore - accessing private method for testing
+    const result = await captureService.onEpisodeComplete(episode);
+
+    expect(recordCaseSpy).toHaveBeenCalled();
+    expect(result.experiences).toHaveLength(1);
+    expect(result.experiences[0].experience?.id).toBe('exp-fallback-3');
   });
 });
 

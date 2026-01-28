@@ -978,60 +978,6 @@ export class CaptureService {
   }
 
   // =============================================================================
-  // MESSAGE SUMMARIZATION
-  // =============================================================================
-
-  private async summarizeMessages(
-    messages: Array<{ role: string; content: string }>
-  ): Promise<string | null> {
-    const config = this.captureConfig.messageEnrichment?.summarization;
-    if (!config?.enabled || !this.extractionService?.isAvailable()) {
-      return null;
-    }
-
-    try {
-      const maxMessages = config?.maxMessages ?? 50;
-      const maxChars = config?.maxContentChars ?? 2000;
-
-      const messagesToSummarize = messages.slice(-maxMessages);
-      const formattedMessages = messagesToSummarize
-        .map((m) => {
-          const truncated =
-            m.content.length > maxChars ? m.content.slice(0, maxChars) + '...' : m.content;
-          return `[${m.role}]: ${truncated}`;
-        })
-        .join('\n\n');
-
-      const result = await this.extractionService.generate({
-        systemPrompt: `You are a conversation summarizer. Create concise summaries that capture the essence of technical conversations.`,
-        userPrompt: `Summarize this conversation in 2-3 sentences, focusing on:
-- Key decisions made
-- Problems identified and solved
-- Important outcomes
-
-Conversation:
-${formattedMessages}`,
-        temperature: 0.3,
-        maxTokens: 256,
-      });
-
-      const summary = result.texts[0]?.trim();
-      if (summary) {
-        logger.debug(
-          { messageCount: messagesToSummarize.length, tokensUsed: result.tokensUsed },
-          'Messages summarized successfully'
-        );
-        return summary;
-      }
-
-      return null;
-    } catch (error) {
-      logger.warn({ error }, 'Failed to summarize messages, falling back to truncated');
-      return null;
-    }
-  }
-
-  // =============================================================================
   // EPISODE COMPLETION HANDLING
   // =============================================================================
 
@@ -1090,51 +1036,97 @@ ${formattedMessages}`,
       };
     });
 
-    const outcomeText =
-      episode.outcome ??
-      (episode.outcomeType === 'success'
-        ? 'Completed successfully'
-        : episode.outcomeType === 'failure'
-          ? 'Failed'
-          : episode.outcomeType === 'partial'
-            ? 'Partially completed'
-            : 'Abandoned');
-
-    const contentParts = [
-      `Outcome type: ${episode.outcomeType ?? 'unknown'}. Duration: ${episode.durationMs ?? 0}ms.`,
-    ];
-
-    if (episode.messages && episode.messages.length > 0) {
-      const summary = await this.summarizeMessages(episode.messages);
-      if (summary) {
-        contentParts.push('');
-        contentParts.push(`Conversation summary: ${summary}`);
-      } else {
-        contentParts.push('');
-        contentParts.push(`Conversation context (${episode.messages.length} messages):`);
-        for (const msg of episode.messages.slice(-5)) {
-          const truncatedContent =
-            msg.content.length > 200 ? msg.content.slice(0, 197) + '...' : msg.content;
-          contentParts.push(`[${msg.role}]: ${truncatedContent}`);
-        }
-      }
-    }
-
-    const result = await this.recordCase({
-      projectId: episode.scopeType === 'project' ? (episode.scopeId ?? undefined) : undefined,
+    const scopeType = (episode.scopeType ?? 'project') as 'global' | 'org' | 'project' | 'session';
+    const captureOptions: CaptureOptions = {
+      scopeType,
+      scopeId: episode.scopeId ?? undefined,
+      projectId: scopeType === 'project' ? (episode.scopeId ?? undefined) : undefined,
       sessionId: episode.sessionId ?? undefined,
+      agentId: undefined,
+      autoStore: true,
+      confidenceThreshold: 0.7,
+      skipDuplicates: true,
       episodeId: episode.id,
+      focusAreas: ['experiences', 'decisions'],
+    };
 
-      title: `Episode: ${episode.name}`,
-      scenario: episode.description ?? 'Task execution',
-      outcome: outcomeText,
-      content: contentParts.join('\n'),
+    let result: ExperienceCaptureResult = {
+      experiences: [],
+      skippedDuplicates: 0,
+      processingTimeMs: 0,
+    };
 
-      trajectory,
-      category: 'episode-completion',
-      confidence: episode.outcomeType === 'success' ? 0.85 : 0.7,
-      source: 'observation',
-    });
+    if (episode.messages && episode.messages.length >= 2) {
+      const turnData = this.convertMessagesToTurnData(episode.messages);
+      const metrics = this.buildSyntheticMetrics(turnData);
+
+      try {
+        result = await this.experienceModule.capture(turnData, metrics, captureOptions);
+
+        if (result.experiences.length === 0) {
+          logger.info(
+            { episodeId: episode.id },
+            'LLM extraction returned 0 experiences, falling back to recordCase'
+          );
+          return await this.recordCase({
+            projectId: captureOptions.projectId,
+            sessionId: captureOptions.sessionId,
+            episodeId: episode.id,
+            title: `Episode: ${episode.name}`,
+            scenario: episode.description ?? 'Task execution',
+            outcome: episode.outcome ?? 'Completed',
+            content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
+            trajectory,
+            category: 'episode-completion',
+            confidence: episode.outcomeType === 'success' ? 0.85 : 0.7,
+            source: 'observation',
+          });
+        }
+
+        if (result.experiences.length > 0) {
+          const experienceIds = result.experiences
+            .map((e) => e.experience?.id)
+            .filter((id): id is string => !!id);
+          await this.linkExperiencesToEpisode(experienceIds, episode.id);
+        }
+      } catch (error) {
+        logger.warn(
+          { episodeId: episode.id, error: error instanceof Error ? error.message : String(error) },
+          'LLM extraction failed, falling back to recordCase'
+        );
+        return await this.recordCase({
+          projectId: captureOptions.projectId,
+          sessionId: captureOptions.sessionId,
+          episodeId: episode.id,
+          title: `Episode: ${episode.name}`,
+          scenario: episode.description ?? 'Task execution',
+          outcome: episode.outcome ?? 'Completed',
+          content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
+          trajectory,
+          category: 'episode-completion',
+          confidence: episode.outcomeType === 'success' ? 0.85 : 0.7,
+          source: 'observation',
+        });
+      }
+    } else if (episode.messages && episode.messages.length < 2) {
+      logger.info(
+        { episodeId: episode.id, messageCount: episode.messages.length },
+        'Insufficient messages for LLM extraction, falling back to recordCase'
+      );
+      return await this.recordCase({
+        projectId: captureOptions.projectId,
+        sessionId: captureOptions.sessionId,
+        episodeId: episode.id,
+        title: `Episode: ${episode.name}`,
+        scenario: episode.description ?? 'Task execution',
+        outcome: episode.outcome ?? 'Completed',
+        content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
+        trajectory,
+        category: 'episode-completion',
+        confidence: episode.outcomeType === 'success' ? 0.85 : 0.7,
+        source: 'observation',
+      });
+    }
 
     logger.info(
       {
