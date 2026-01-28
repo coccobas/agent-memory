@@ -112,3 +112,60 @@ const normalizeTimestamp = (ts: string): string => {
 - Consistent implementation across both repository files
 - Proper error handling with descriptive messages
 - Maintains backward compatibility with SQL queries
+
+## [2026-01-28] Task 3: Message Linking Race Condition (Late-Arriving Messages)
+
+### Problem
+
+Messages arriving shortly after `episode.complete()` were orphaned because they fell outside the exact time window (startedAt to endedAt). This is a race condition where:
+
+1. Episode completes at T=60s → `episode.endedAt = T=60s`
+2. Message arrives at T=62s (2 seconds later)
+3. `linkMessagesToEpisode` uses time range [T=0, T=60s]
+4. Message at T=62s is OUTSIDE the range → NOT LINKED (orphaned)
+
+### Solution
+
+Added 5-second buffer to `endTime` when linking messages to episodes. This captures late-arriving messages without changing the episode's actual `endedAt` timestamp.
+
+### Implementation Details
+
+- **File**: `src/services/episode/index.ts`
+- **Constant**: `LATE_MESSAGE_BUFFER_MS = 5000` (line 32)
+- **Function**: `importAndLinkMessages` (lines 120-214)
+- **Pattern**: Calculate `endTimeWithBuffer = new Date(new Date(episode.endedAt).getTime() + LATE_MESSAGE_BUFFER_MS).toISOString()`
+- **Applied to**: Both code paths (unifiedMessageSource and conversationRepo fallback)
+
+### Key Insight
+
+The buffer extends the time window for message linking WITHOUT modifying the episode's actual `endedAt` timestamp. This preserves episode timing accuracy while capturing late messages.
+
+### Test Coverage
+
+- **Test File**: `tests/integration/episode-late-messages.test.ts`
+- **Test 1**: Message arriving T+2s after complete() → GETS LINKED (within 5s buffer)
+- **Test 2**: Message arriving T+10s after complete() → NOT LINKED (outside 5s buffer)
+- **Timeout**: Second test requires 15s timeout due to 10-second wait
+
+### Logging
+
+Added debug logging showing:
+
+- `originalEndTime`: The actual episode.endedAt
+- `bufferedEndTime`: The extended time with 5s buffer
+- Helps diagnose late-message linking behavior
+
+### Test Results
+
+- New tests: 2 passing
+- Existing episode-message-linking tests: 13 passing (no regressions)
+- Full test suite: 9802 tests passing (up from 9800)
+- 0 failures
+
+### Lessons Learned
+
+1. Race conditions in async systems require temporal buffers
+2. Buffers should be configurable constants, not magic numbers
+3. Both code paths (primary + fallback) must implement the same logic
+4. Debug logging with before/after timestamps helps troubleshooting
+5. Integration tests with real timing (setTimeout) validate race condition fixes

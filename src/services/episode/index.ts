@@ -29,6 +29,8 @@ import type { IUnifiedMessageSource } from '../unified-message-source.js';
 
 const logger = createComponentLogger('episode-service');
 
+const LATE_MESSAGE_BUFFER_MS = 5000;
+
 /**
  * Safely parse JSON, returning undefined on parse errors instead of throwing.
  * Bug fix: Prevents uncaught SyntaxError from malformed event data.
@@ -124,7 +126,13 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
     let messagesLinked = 0;
     let messagesImported = 0;
 
-    if (!conversationRepo || !episode.sessionId || !episode.startedAt || !episode.endedAt) {
+    // Need either unifiedMessageSource or conversationRepo to link messages
+    if (
+      (!unifiedMessageSource && !conversationRepo) ||
+      !episode.sessionId ||
+      !episode.startedAt ||
+      !episode.endedAt
+    ) {
       return { messagesLinked, messagesImported };
     }
 
@@ -161,18 +169,50 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
     }
 
     // Step 2: Link messages to episode (both pre-existing and newly imported)
+    // Use unifiedMessageSource if available - it handles both transcript and conversation messages
     try {
-      messagesLinked = await conversationRepo.linkMessagesToEpisode({
-        episodeId: episode.id,
-        sessionId: episode.sessionId,
-        startTime: episode.startedAt,
-        endTime: episode.endedAt,
-      });
-      if (messagesLinked > 0) {
-        logger.debug(
-          { episodeId: episode.id, messagesLinked },
-          'Linked conversation messages to episode'
-        );
+      const endTimeWithBuffer = new Date(
+        new Date(episode.endedAt).getTime() + LATE_MESSAGE_BUFFER_MS
+      ).toISOString();
+
+      if (unifiedMessageSource) {
+        const linkResult = await unifiedMessageSource.linkMessagesToEpisode({
+          episodeId: episode.id,
+          sessionId: episode.sessionId,
+          startTime: episode.startedAt,
+          endTime: endTimeWithBuffer,
+        });
+        messagesLinked = linkResult.linked;
+        if (messagesLinked > 0) {
+          logger.debug(
+            {
+              episodeId: episode.id,
+              messagesLinked,
+              source: linkResult.source,
+              originalEndTime: episode.endedAt,
+              bufferedEndTime: endTimeWithBuffer,
+            },
+            'Linked messages to episode via unified source (with late-message buffer)'
+          );
+        }
+      } else if (conversationRepo) {
+        messagesLinked = await conversationRepo.linkMessagesToEpisode({
+          episodeId: episode.id,
+          sessionId: episode.sessionId,
+          startTime: episode.startedAt,
+          endTime: endTimeWithBuffer,
+        });
+        if (messagesLinked > 0) {
+          logger.debug(
+            {
+              episodeId: episode.id,
+              messagesLinked,
+              originalEndTime: episode.endedAt,
+              bufferedEndTime: endTimeWithBuffer,
+            },
+            'Linked conversation messages to episode (with late-message buffer)'
+          );
+        }
       }
     } catch (error) {
       logger.warn(
@@ -260,6 +300,17 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
 
     async cancel(id: string, reason?: string): Promise<EpisodeWithEvents> {
       return episodeRepo.cancel(id, reason);
+    },
+
+    async importAndLinkMessages(
+      episodeId: string,
+      conversationId?: string
+    ): Promise<{ messagesLinked: number; messagesImported: number }> {
+      const episode = await episodeRepo.getById(episodeId, false);
+      if (!episode) {
+        throw createNotFoundError('Episode', episodeId);
+      }
+      return importAndLinkMessages(episode, conversationId);
     },
 
     // ==========================================================================

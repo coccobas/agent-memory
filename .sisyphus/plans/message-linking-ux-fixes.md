@@ -254,7 +254,7 @@ Issue 2 (Scope) → Issue 5 (Timestamps) → Issue 4 (Race) → Issue 1 (Tools) 
 
 ### Task 3: Fix Message Linking Race Condition (Issue 4)
 
-- [ ] 3. Handle late-arriving messages with time window extension
+- [x] 3. Handle late-arriving messages with time window extension
 
   **What to do**:
   - Write test: message arriving after episode.complete() but within 5s window → gets linked
