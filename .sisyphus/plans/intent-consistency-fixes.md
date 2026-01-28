@@ -38,12 +38,24 @@ Fix all 8 intent vs. tool inconsistencies identified in the agent-memory codebas
 
 ### Core Objective
 
-Fix intent detection inconsistencies by: (1) adding "learn experience:" pattern, (2) centralizing duplicated enums, (3) unifying intent systems, and (4) documenting the architecture.
+Fix intent detection inconsistencies by: (1) fixing `learn_experience` confidence threshold (pattern already exists), (2) centralizing duplicated enums, (3) unifying intent systems, and (4) documenting the architecture.
+
+**CRITICAL DISCOVERY**: The `learn_experience` pattern ALREADY EXISTS in the codebase:
+
+- Intent type at `patterns.ts:27`
+- Pattern at `patterns.ts:89`: `/^(?!(?:don'?t|do\s+not|never)\s+)learn\s+experience:\s*/i`
+- Dispatcher case at `dispatcher.ts:139-140`
+- Tests at `tests/unit/intent-detection-learn-experience.test.ts` (20 pass, 4 fail)
+
+The failing tests indicate:
+
+- Confidence threshold expects `>= 0.8` but gets `0.75`
+- Missing `src/services/rl/policy-types.ts` file (Task 2 creates this)
 
 ### Concrete Deliverables
 
-- `src/services/intent-detection/patterns.ts` - New `learn_experience` intent pattern
-- `src/services/rl/policy-types.ts` - Centralized PolicyType enum (NEW FILE)
+- `src/services/intent-detection/patterns.ts` - Fix `learn_experience` confidence to `>= 0.8`
+- `src/services/rl/policy-types.ts` - Centralized PolicyType enum (NEW FILE - tests expect this)
 - `src/services/intent-detection/unified-intents.ts` - Merged Intent+QueryIntent taxonomy (NEW FILE)
 - `docs/reference/intent-detection.md` - Intent detection matrix documentation (NEW FILE)
 - `tests/unit/intent-detection-*.test.ts` - New and updated tests
@@ -54,7 +66,7 @@ Fix intent detection inconsistencies by: (1) adding "learn experience:" pattern,
 - [ ] `bun test` passes (all 9,716+ tests)
 - [ ] `bun run lint` passes
 - [ ] `bun run typecheck` passes
-- [ ] New "learn experience:" pattern works: `memory` tool routes to `memory_experience.learn`
+- [ ] Existing "learn experience:" pattern returns confidence `>= 0.8`
 - [ ] PolicyType imported from single source in all 6+ locations
 - [ ] Intent and QueryIntent merged into unified taxonomy
 - [ ] Documentation complete with intent→action matrix
@@ -115,7 +127,7 @@ Each task follows RED-GREEN-REFACTOR:
     ┌─────────┴─────────┐
     ▼                   ▼
 Task 1              Task 2
-(learn pattern)     (policy enum)
+(fix confidence)    (policy enum)
     │                   │
     └─────────┬─────────┘
               ▼
@@ -163,86 +175,88 @@ Task 7              Task 8
 
 ## TODOs
 
-- [x] 0. Write TDD Tests (RED phase)
+- [x] 0. Write TDD Tests (RED phase) — **ALREADY COMPLETE**
 
-  **What to do**:
-  - Create test file `tests/unit/intent-detection-learn-experience.test.ts`
-  - Write tests for "learn experience:" pattern detection
-  - Write tests for edge cases: empty content, case variations, extra spaces, negation
-  - Write tests for PolicyType centralization
-  - All tests should FAIL initially (RED)
+  **Status**: Tests exist at `tests/unit/intent-detection-learn-experience.test.ts`
+  - 20 tests PASS
+  - 4 tests FAIL (confidence threshold and missing policy-types.ts)
 
-  **Must NOT do**:
-  - Do NOT implement any production code yet
-  - Do NOT modify existing test files
+  **Failing tests to fix in subsequent tasks**:
+  1. Confidence threshold: expects `>= 0.8`, gets `0.75`
+  2. PolicyType import: expects `src/services/rl/policy-types.ts` to exist
 
-  **Parallelizable**: NO (must be first)
+  **Parallelizable**: NO (already done)
 
   **References**:
-  - `tests/unit/intent-detection-patterns.test.ts` - Existing test structure and patterns
-  - `src/services/intent-detection/patterns.ts:316-372` - `detectIntent()` function to test
-  - `tests/unit/dispatcher.test.ts` - Dispatcher routing test patterns
+  - `tests/unit/intent-detection-learn-experience.test.ts` - Existing test file (20 pass, 4 fail)
+  - `src/services/intent-detection/patterns.ts:89` - Pattern exists with 0.75 confidence
+  - `src/services/intent-detection/patterns.ts:27` - Intent type exists
 
   **Acceptance Criteria**:
-  - [ ] Test file created: `tests/unit/intent-detection-learn-experience.test.ts`
-  - [ ] Tests cover: `detectIntent("learn experience: Fixed X")` → `intent: 'learn_experience'`
-  - [ ] Tests cover: empty content after colon → error
-  - [ ] Tests cover: case insensitivity (`LEARN EXPERIENCE:` works)
-  - [ ] Tests cover: extra whitespace normalization
-  - [ ] Tests cover: negation (`"don't learn experience:"` → different behavior)
-  - [ ] `bun test tests/unit/intent-detection-learn-experience.test.ts` → FAIL (expected - RED phase)
+  - [x] Test file exists: `tests/unit/intent-detection-learn-experience.test.ts`
+  - [x] Tests cover: `detectIntent("learn experience: Fixed X")` → `intent: 'learn_experience'`
+  - [x] Tests cover: empty content after colon → error
+  - [x] Tests cover: case insensitivity (`LEARN EXPERIENCE:` works)
+  - [x] Tests cover: extra whitespace normalization
+  - [x] Tests cover: negation (`"don't learn experience:"` → different behavior)
+  - [ ] 4 failing tests will pass after Tasks 1 and 2
 
-  **Commit**: YES
-  - Message: `test(intent): add failing tests for learn_experience pattern (TDD red)`
-  - Files: `tests/unit/intent-detection-learn-experience.test.ts`
-  - Pre-commit: `bun run lint`
+  **Commit**: NO (already committed)
 
 ---
 
-- [x] 1. Add "learn experience:" Pattern
+- [ ] 1. Fix `learn_experience` Confidence Threshold
 
   **What to do**:
-  - Add `learn_experience` to Intent type union in `patterns.ts`
-  - Add regex pattern: `/^learn\s+experience:\s*/i`
-  - Add parameter extraction for text after colon
-  - Add case to dispatcher to route to `memory_experience` with `action: 'learn'`
-  - Run tests - they should now PASS (GREEN)
+  The `learn_experience` pattern ALREADY EXISTS but returns confidence `0.75`. Tests expect `>= 0.8`.
+  - Locate the confidence assignment for `learn_experience` in `patterns.ts`
+  - The pattern uses descriptor-based confidence from `INTENT_PATTERNS.learn_experience`:
+    ```typescript
+    // Current (patterns.ts around line 89):
+    learn_experience: {
+      patterns: [/^(?!(?:don'?t|do\s+not|never)\s+)learn\s+experience:\s*/i],
+      confidence: 0.75,  // ← Change to 0.85
+      ...
+    }
+    ```
+  - Increase confidence to `0.85` (or `0.8`) to pass tests
+  - Run tests to verify
 
   **Must NOT do**:
-  - Do NOT add more than one new intent type
-  - Do NOT modify existing pattern order
-  - Do NOT change confidence scoring algorithm
+  - Do NOT add a new pattern (it exists!)
+  - Do NOT modify the regex
+  - Do NOT change dispatcher routing (already works)
 
   **Parallelizable**: YES (with Task 2)
 
   **References**:
-  - `src/services/intent-detection/patterns.ts:12-27` - Intent type union to extend
-  - `src/services/intent-detection/patterns.ts:43-159` - INTENT_PATTERNS object to add to
-  - `src/services/intent-detection/patterns.ts:418-549` - `extractParams()` to extend
-  - `src/services/unified-memory/dispatcher.ts:109-147` - Switch statement to add case
-  - `src/mcp/descriptors/memory_experience.ts:149` - Learn handler to route to
+  - `src/services/intent-detection/patterns.ts:89` - Pattern definition with `confidence: 0.75`
+  - `src/services/intent-detection/patterns.ts:27` - Intent type `'learn_experience'` (exists)
+  - `src/services/intent-detection/patterns.ts:551-558` - Parameter extraction (exists)
+  - `src/services/unified-memory/dispatcher.ts:139-140` - Dispatcher case (exists)
+  - `tests/unit/intent-detection-learn-experience.test.ts` - Tests expecting `>= 0.8`
 
   **Acceptance Criteria**:
   - [ ] `detectIntent("learn experience: Fixed X")` returns:
     ```typescript
     { intent: 'learn_experience', confidence: >= 0.8, extractedParams: { text: 'Fixed X' } }
     ```
-  - [ ] `detectIntent("learn experience: ")` returns intent with error flag or low confidence
-  - [ ] `detectIntent("LEARN EXPERIENCE: test")` works (case insensitive)
-  - [ ] Dispatcher routes `learn_experience` intent to `memory_experience.learn` action
-  - [ ] `bun test tests/unit/intent-detection-learn-experience.test.ts` → PASS
-  - [ ] `bun test` → ALL PASS (9,716+ tests)
+  - [ ] Confidence threshold tests pass (currently 4 failing)
+  - [ ] `bun test tests/unit/intent-detection-learn-experience.test.ts` → ALL 24 PASS
+  - [ ] `bun test` → ALL PASS
 
   **Commit**: YES
-  - Message: `feat(intent): add learn_experience pattern for memory_experience routing`
-  - Files: `src/services/intent-detection/patterns.ts`, `src/services/unified-memory/dispatcher.ts`
-  - Pre-commit: `bun test && bun run lint`
+  - Message: `fix(intent): increase learn_experience confidence to 0.85 for test compliance`
+  - Files: `src/services/intent-detection/patterns.ts`
+  - Pre-commit: `bun test tests/unit/intent-detection-learn-experience.test.ts`
 
 ---
 
-- [ ] 2. Centralize Policy Enum
+- [x] 2. Centralize Policy Enum (REQUIRED - Tests Depend on This)
 
   **What to do**:
+  The test file `tests/unit/intent-detection-learn-experience.test.ts` imports from
+  `src/services/rl/policy-types.ts` which does NOT exist yet. This causes test failures.
   - Create `src/services/rl/policy-types.ts` with:
     - `POLICY_TYPES` const array: `['extraction', 'retrieval', 'consolidation'] as const`
     - `PolicyType` type alias
@@ -258,18 +272,21 @@ Task 7              Task 8
   **Parallelizable**: YES (with Task 1)
 
   **References**:
-  - `src/services/rl/training/export/types.ts:19` - Canonical definition location
+  - `src/services/rl/training/export/types.ts:19` - Canonical definition location (to move from)
   - `src/services/rl/training/model-loader.ts` - Has duplicate, needs import
   - `src/mcp/handlers/rl.handler.ts` - 6 occurrences of string literals to replace
   - `src/mcp/handlers/feedback.handler.ts` - String literal occurrences
   - `src/cli/commands/rl.ts` - 6 occurrences of string literals
+  - `tests/unit/intent-detection-learn-experience.test.ts` - IMPORTS FROM THIS FILE (will fail until created)
 
   **Acceptance Criteria**:
   - [ ] File created: `src/services/rl/policy-types.ts`
   - [ ] Exports: `POLICY_TYPES`, `PolicyType`, `isPolicyType()`
+  - [ ] Test import resolves: `import { PolicyType } from '@/services/rl/policy-types'`
   - [ ] `lsp_find_references` for PolicyType shows single definition
   - [ ] `grep -r "policyType === 'extraction'" src/` returns 0 results (all replaced)
   - [ ] `bun test tests/unit/rl*.test.ts` → PASS
+  - [ ] `bun test tests/unit/intent-detection-learn-experience.test.ts` → PASS (after Task 1 too)
   - [ ] `bun test` → ALL PASS
 
   **Commit**: YES
@@ -306,11 +323,15 @@ Task 7              Task 8
   - [ ] Documents: how to preserve `getMemoryTypesForIntent()` behavior
   - [ ] Documents: deprecation plan for QueryIntent type
   - [ ] Documents: migration path for any external consumers
+  - [ ] Sign-off: PR approval from user OR explicit "LGTM" on ADR review
 
   **Commit**: YES
   - Message: `docs(adr): add ADR-001 for intent system unification strategy`
   - Files: `docs/adr/ADR-001-intent-unification.md`
   - Pre-commit: none (documentation only)
+
+  **Note on Sign-off**: "Team sign-off" = PR approval when ADR is committed, or user explicitly
+  approving the design during review. No formal process required for solo projects.
 
 ---
 
@@ -358,8 +379,26 @@ Task 7              Task 8
   **What to do**:
   - Update dispatcher to use descriptor-based pattern for all cases
   - Ensure all switch cases follow consistent pattern
-  - Add `learn_experience` case to dispatcher (if not done in Task 1)
+  - `learn_experience` case already exists at `dispatcher.ts:139-140` (no action needed)
   - Document handler interface
+
+  **Descriptor-based pattern example** (what each case should look like):
+
+  ```typescript
+  // Current inconsistent patterns:
+  case 'store':
+    return handleStore(params);  // Direct call
+  case 'retrieve':
+    return this.handleRetrieve(params);  // Method call
+  case 'learn_experience':
+    return memoryExperienceDescriptor.handlers.learn(params);  // Descriptor-based ✓
+
+  // Target: ALL cases use descriptor-based pattern:
+  case 'store':
+    return memoryDescriptor.handlers.store(params);
+  case 'retrieve':
+    return memoryDescriptor.handlers.retrieve(params);
+  ```
 
   **Must NOT do**:
   - Do NOT modify individual handler implementations
@@ -370,19 +409,21 @@ Task 7              Task 8
 
   **References**:
   - `src/services/unified-memory/dispatcher.ts:109-147` - Switch statement to standardize
-  - `src/mcp/descriptors/types.ts` - Descriptor-based pattern
+  - `src/services/unified-memory/dispatcher.ts:139-140` - `learn_experience` case (already descriptor-based)
+  - `src/mcp/descriptors/types.ts` - Descriptor interface definition
+  - `src/mcp/descriptors/memory_experience.ts` - Example of descriptor with handlers
   - `src/mcp/tool-runner.ts:580-620` - Tool execution flow
 
   **Acceptance Criteria**:
-  - [ ] All dispatcher cases follow consistent pattern
-  - [ ] Handler interface documented in JSDoc
-  - [ ] No behavioral changes to existing routing
+  - [ ] All dispatcher cases use descriptor-based pattern (import descriptor, call `.handlers.action()`)
+  - [ ] Handler interface documented in JSDoc on dispatcher or descriptors
+  - [ ] No behavioral changes to existing routing (same inputs → same outputs)
   - [ ] All dispatcher tests pass
   - [ ] `bun test tests/unit/dispatcher.test.ts` → PASS
   - [ ] `bun test` → ALL PASS
 
   **Commit**: YES
-  - Message: `refactor(dispatcher): standardize action routing pattern`
+  - Message: `refactor(dispatcher): standardize action routing to descriptor-based pattern`
   - Files: `src/services/unified-memory/dispatcher.ts`
   - Pre-commit: `bun test`
 
@@ -392,32 +433,45 @@ Task 7              Task 8
 
   **What to do**:
   - Audit all confidence threshold locations
-  - Create config constant: `INTENT_CONFIDENCE_THRESHOLDS`
-  - Options: `{ low: 0.5, default: 0.7, high: 0.9 }`
-  - Update dispatcher to use config
+  - Create config file: `src/services/intent-detection/config.ts`
+  - Export config constant: `INTENT_CONFIDENCE_THRESHOLDS`
+    ```typescript
+    export const INTENT_CONFIDENCE_THRESHOLDS = {
+      /** Below this = low confidence warning */
+      low: 0.5,
+      /** Default threshold for intent detection */
+      default: 0.7,
+      /** High confidence (used for learn_experience) */
+      high: 0.85,
+    } as const;
+    ```
+  - Update dispatcher to use config: `if (confidence < INTENT_CONFIDENCE_THRESHOLDS.low)`
   - Update classification service to use same thresholds
-  - Document threshold meanings
+  - Document threshold meanings in JSDoc
 
   **Must NOT do**:
   - Do NOT change threshold values significantly (could break existing behavior)
-  - Do NOT add dynamic thresholds
+  - Do NOT add dynamic/runtime thresholds
 
   **Parallelizable**: NO (depends on Task 4)
 
   **References**:
-  - `src/services/unified-memory/dispatcher.ts:99` - `confidence < 0.5` threshold
-  - `src/services/intent-detection/index.ts:66` - `confidenceThreshold: 0.7`
+  - `src/services/unified-memory/dispatcher.ts:99` - `confidence < 0.5` threshold (hardcoded)
+  - `src/services/intent-detection/index.ts:66` - `confidenceThreshold: 0.7` (hardcoded)
+  - `src/services/intent-detection/patterns.ts:89` - Per-intent confidence values
   - `src/services/classification/index.ts` - Classification thresholds
 
   **Acceptance Criteria**:
-  - [ ] Single config location for thresholds
-  - [ ] All threshold usages reference the config
-  - [ ] `grep -r "< 0.5" src/services/` returns config reference only
-  - [ ] Threshold meanings documented
+  - [ ] Config file created: `src/services/intent-detection/config.ts`
+  - [ ] Exports: `INTENT_CONFIDENCE_THRESHOLDS` with `low`, `default`, `high` values
+  - [ ] All hardcoded thresholds replaced with config imports
+  - [ ] `grep -rn "< 0.5" src/services/` returns ONLY config reference or 0 results
+  - [ ] `grep -rn "0.7" src/services/intent-detection/` returns ONLY config reference
+  - [ ] Threshold meanings documented in JSDoc
   - [ ] `bun test` → ALL PASS
 
   **Commit**: YES
-  - Message: `refactor(intent): standardize confidence thresholds to single config`
+  - Message: `refactor(intent): centralize confidence thresholds to config.ts`
   - Files: `src/services/intent-detection/config.ts` (new), dispatcher.ts, index.ts
   - Pre-commit: `bun test`
 
@@ -502,17 +556,17 @@ Task 7              Task 8
 
 ## Commit Strategy
 
-| After Task | Message                                                                    | Files                                                | Verification                    |
-| ---------- | -------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------- |
-| 0          | `test(intent): add failing tests for learn_experience pattern (TDD red)`   | tests/unit/intent-detection-learn-experience.test.ts | `bun run lint`                  |
-| 1          | `feat(intent): add learn_experience pattern for memory_experience routing` | patterns.ts, dispatcher.ts                           | `bun test`                      |
-| 2          | `refactor(rl): centralize PolicyType enum to single source of truth`       | policy-types.ts (new), 6+ files                      | `bun test && bun run typecheck` |
-| 3          | `docs(adr): add ADR-001 for intent system unification strategy`            | docs/adr/ADR-001-intent-unification.md               | none                            |
-| 4          | `feat(intent): unify Intent and QueryIntent into single taxonomy`          | unified-intents.ts (new), patterns.ts, classifier.ts | `bun test && bun run typecheck` |
-| 5          | `refactor(dispatcher): standardize action routing pattern`                 | dispatcher.ts                                        | `bun test`                      |
-| 6          | `refactor(intent): standardize confidence thresholds to single config`     | config.ts (new), dispatcher.ts                       | `bun test`                      |
-| 7          | `docs(intent): add comprehensive intent detection reference`               | docs/reference/intent-detection.md, CHANGELOG.md     | none                            |
-| 8          | `test(integration): add intent flow integration tests`                     | tests/integration/intent-flow.test.ts                | `bun test`                      |
+| After Task | Message                                                                | Files                                                | Verification                                                    |
+| ---------- | ---------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
+| 0          | (already committed)                                                    | tests/unit/intent-detection-learn-experience.test.ts | N/A                                                             |
+| 1          | `fix(intent): increase learn_experience confidence to 0.85`            | patterns.ts                                          | `bun test tests/unit/intent-detection-learn-experience.test.ts` |
+| 2          | `refactor(rl): centralize PolicyType enum to single source of truth`   | policy-types.ts (new), 6+ files                      | `bun test && bun run typecheck`                                 |
+| 3          | `docs(adr): add ADR-001 for intent system unification strategy`        | docs/adr/ADR-001-intent-unification.md               | none                                                            |
+| 4          | `feat(intent): unify Intent and QueryIntent into single taxonomy`      | unified-intents.ts (new), patterns.ts, classifier.ts | `bun test && bun run typecheck`                                 |
+| 5          | `refactor(dispatcher): standardize action routing to descriptor-based` | dispatcher.ts                                        | `bun test`                                                      |
+| 6          | `refactor(intent): centralize confidence thresholds to config.ts`      | config.ts (new), dispatcher.ts, index.ts             | `bun test`                                                      |
+| 7          | `docs(intent): add comprehensive intent detection reference`           | docs/reference/intent-detection.md, CHANGELOG.md     | none                                                            |
+| 8          | `test(integration): add intent flow integration tests`                 | tests/integration/intent-flow.test.ts                | `bun test`                                                      |
 
 ---
 

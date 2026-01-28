@@ -4,6 +4,10 @@
  * Type definitions for exporting RL training datasets in multiple formats.
  */
 
+import { type PolicyType, POLICY_TYPES, isPolicyType } from '../../policy-types.js';
+
+export { type PolicyType, POLICY_TYPES, isPolicyType };
+
 // =============================================================================
 // EXPORT FORMAT TYPES
 // =============================================================================
@@ -12,11 +16,6 @@
  * Supported export formats
  */
 export type ExportFormat = 'huggingface' | 'openai' | 'anthropic' | 'csv' | 'jsonl';
-
-/**
- * Policy types for dataset export
- */
-export type PolicyType = 'extraction' | 'retrieval' | 'consolidation';
 
 // =============================================================================
 // EXPORT OPTIONS

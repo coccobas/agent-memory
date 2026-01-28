@@ -9,6 +9,7 @@ import { writeFileSync } from 'fs';
 import { getCliContext, shutdownCliContext } from '../utils/context.js';
 import { formatOutput, type OutputFormat } from '../utils/output.js';
 import { handleCliError } from '../utils/errors.js';
+import { isPolicyType } from '../../services/rl/policy-types.js';
 import {
   buildExtractionDataset,
   buildRetrievalDataset,
@@ -159,7 +160,7 @@ export function addRlCommand(program: Command): void {
         console.log(`Training ${policy} policy...`);
 
         // Validate policy type
-        if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+        if (!isPolicyType(policy)) {
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -245,7 +246,7 @@ export function addRlCommand(program: Command): void {
         await getCliContext();
 
         // Validate policy type
-        if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+        if (!isPolicyType(policy)) {
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -325,7 +326,7 @@ export function addRlCommand(program: Command): void {
         const context = await getCliContext();
 
         // Validate policy type
-        if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+        if (!isPolicyType(policy)) {
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -392,7 +393,7 @@ export function addRlCommand(program: Command): void {
         const context = await getCliContext();
 
         // Validate policy type
-        if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+        if (!isPolicyType(policy)) {
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );
@@ -439,7 +440,7 @@ export function addRlCommand(program: Command): void {
         const context = await getCliContext();
 
         // Validate policy type
-        if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+        if (!isPolicyType(policy)) {
           console.error(
             `Unknown policy: ${policy}. Must be extraction, retrieval, or consolidation.`
           );

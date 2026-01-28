@@ -12,6 +12,7 @@ const logger = createComponentLogger('rl-handler');
 import type { IFileSystemAdapter } from '../../core/adapters/index.js';
 import { createLocalFileSystemAdapter } from '../../core/adapters/index.js';
 import { createValidationError } from '../../core/errors.js';
+import { POLICY_TYPES, isPolicyType } from '../../services/rl/policy-types.js';
 import {
   buildExtractionDataset,
   buildRetrievalDataset,
@@ -81,7 +82,7 @@ async function trainOriginal(
   const maxExamples = getOptionalParam(params, 'maxExamples', isNumber);
   const evalSplit = getOptionalParam(params, 'evalSplit', isNumber);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+  if (!isPolicyType(policy)) {
     throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
@@ -130,7 +131,7 @@ async function enable(context: AppContext, params: Record<string, unknown>): Pro
   const policy = getRequiredParam(params, 'policy', isString);
   const enabled = getRequiredParam(params, 'enabled', isBoolean);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+  if (!isPolicyType(policy)) {
     throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
@@ -174,7 +175,7 @@ async function updateConfig(
   const configUpdate: Record<string, unknown> = {};
 
   if (policy && (configParam || modelPath !== undefined || enabled !== undefined)) {
-    if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+    if (!isPolicyType(policy)) {
       throw createValidationError(
         'policy',
         'Policy must be extraction, retrieval, or consolidation'
@@ -222,7 +223,7 @@ async function exportDataset(
   const maxExamples = getOptionalParam(params, 'maxExamples', isNumber);
   const evalSplit = getOptionalParam(params, 'evalSplit', isNumber);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+  if (!isPolicyType(policy)) {
     throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
@@ -300,7 +301,7 @@ async function trainPolicy(
   const policy = getRequiredParam(params, 'policy', isString);
   const configParam = getOptionalParam(params, 'config', isObject);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+  if (!isPolicyType(policy)) {
     throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
@@ -316,7 +317,7 @@ async function loadModel(context: AppContext, params: Record<string, unknown>): 
   const policy = getRequiredParam(params, 'policy', isString);
   const version = getOptionalParam(params, 'version', isString);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+  if (!isPolicyType(policy)) {
     throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
@@ -382,7 +383,7 @@ async function loadModel(context: AppContext, params: Record<string, unknown>): 
 async function listModels(context: AppContext, _params: Record<string, unknown>): Promise<unknown> {
   const fs = getFileSystemAdapter(context);
   const modelsBaseDir = fs.join(appConfig.paths.dataDir, 'models', 'rl');
-  const policies = ['extraction', 'retrieval', 'consolidation'];
+  const policies = POLICY_TYPES;
 
   // Model list format varies by policy - using any for flexibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -463,7 +464,7 @@ async function evaluateModel(
   const policy = getRequiredParam(params, 'policy', isString);
   const datasetPath = getOptionalParam(params, 'datasetPath', isString);
 
-  if (!['extraction', 'retrieval', 'consolidation'].includes(policy)) {
+  if (!isPolicyType(policy)) {
     throw createValidationError('policy', 'Policy must be extraction, retrieval, or consolidation');
   }
 
@@ -571,16 +572,14 @@ async function compareModels(
   const policyB = getRequiredParam(params, 'policyB', isString);
   const datasetPath = getOptionalParam(params, 'datasetPath', isString);
 
-  const validPolicies = ['extraction', 'retrieval', 'consolidation'];
-
-  if (!validPolicies.includes(policyA)) {
+  if (!isPolicyType(policyA)) {
     throw createValidationError(
       'policyA',
       'Policy must be extraction, retrieval, or consolidation'
     );
   }
 
-  if (!validPolicies.includes(policyB)) {
+  if (!isPolicyType(policyB)) {
     throw createValidationError(
       'policyB',
       'Policy must be extraction, retrieval, or consolidation'

@@ -16,8 +16,10 @@ const logger = createComponentLogger('model-loader');
 // TYPES
 // =============================================================================
 
+import { type PolicyType } from '../policy-types.js';
+
+export { type PolicyType };
 export type ModelFormat = 'onnx' | 'safetensors' | 'json' | 'checkpoint';
-export type PolicyType = 'extraction' | 'retrieval' | 'consolidation';
 
 export interface ModelMetadata {
   trainedAt: string;
