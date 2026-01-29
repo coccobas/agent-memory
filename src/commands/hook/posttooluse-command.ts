@@ -10,6 +10,7 @@
  * 3. Detect immediate error patterns
  */
 
+import { createHash } from 'crypto';
 import { createComponentLogger } from '../../utils/logger.js';
 import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
@@ -188,6 +189,55 @@ function calculateSize(data: unknown): number | undefined {
 }
 
 /**
+ * Normalize error message for signature generation
+ * Removes paths, line numbers, timestamps, and PIDs to ensure
+ * same conceptual error produces same signature across sessions
+ */
+function normalizeErrorMessage(message: string): string {
+  let normalized = message;
+
+  // Remove absolute paths (e.g., /Users/..., /home/..., C:\Users\...)
+  normalized = normalized.replace(/\/Users\/[^/\s]+/g, '<path>');
+  normalized = normalized.replace(/\/home\/[^/\s]+/g, '<path>');
+  normalized = normalized.replace(/C:\\Users\\[^\\]+/g, '<path>');
+
+  // Remove line numbers (e.g., :123:45, line 123)
+  normalized = normalized.replace(/:\d+:\d+/g, '');
+  normalized = normalized.replace(/line\s+\d+/gi, '');
+
+  // Remove timestamps (ISO 8601 and epoch)
+  normalized = normalized.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.Z\d]*/g, '<timestamp>');
+  normalized = normalized.replace(/\d{10,13}/g, '<epoch>');
+
+  // Remove process IDs (e.g., pid 12345)
+  normalized = normalized.replace(/pid\s+\d+/gi, 'pid <redacted>');
+
+  return normalized.trim();
+}
+
+/**
+ * Generate error signature for deduplication
+ * Hash of toolName + errorType + normalized message
+ */
+function generateErrorSignature(
+  toolName: string | undefined,
+  errorType: string | undefined,
+  errorMessage: string | undefined
+): string {
+  const normalized = normalizeErrorMessage(errorMessage || '');
+  const signatureInput = `${toolName || 'unknown'}:${errorType || 'unknown'}:${normalized}`;
+  return createHash('sha256').update(signatureInput).digest('hex');
+}
+
+/**
+ * Generate hash of tool input for privacy-safe storage
+ */
+function hashToolInput(toolInput: unknown): string {
+  const inputStr = typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput);
+  return createHash('sha256').update(inputStr).digest('hex');
+}
+
+/**
  * Run the PostToolUse hook command
  */
 export async function runPostToolUseCommand(params: {
@@ -272,7 +322,7 @@ export async function runPostToolUseCommand(params: {
     }
   }
 
-  // Step 3: Detect immediate error patterns
+  // Step 3: Detect immediate error patterns and store in error_log
   if (config.detectErrorPatterns && !success && errorType) {
     logger.debug(
       {
@@ -283,6 +333,48 @@ export async function runPostToolUseCommand(params: {
       },
       'Tool execution failed'
     );
+
+    // Store error in error_log table (non-blocking, fire-and-forget)
+    if (sessionId && toolName) {
+      try {
+        const ctx = getContext();
+        if (ctx.repos.errorLog) {
+          const errorSignature = generateErrorSignature(toolName, errorType, outputSummary);
+          const toolInputHash = toolInput ? hashToolInput(toolInput) : undefined;
+
+          ctx.repos.errorLog
+            .record({
+              sessionId,
+              projectId,
+              toolName,
+              errorType,
+              errorMessage: outputSummary,
+              errorSignature,
+              toolInputHash,
+            })
+            .catch((err) => {
+              logger.warn(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  sessionId,
+                  toolName,
+                },
+                'Failed to store error in error_log (non-blocking)'
+              );
+            });
+        }
+      } catch (error) {
+        // Non-blocking - don't let error storage failure affect hook execution
+        logger.debug(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            sessionId,
+            toolName,
+          },
+          'Error storing tool failure in error_log (non-blocking)'
+        );
+      }
+    }
   }
 
   // Step 4: Learn from tool failures (create experiences for Librarian)
