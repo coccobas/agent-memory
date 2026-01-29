@@ -178,6 +178,25 @@ async function handleStore(
     };
   }
 
+  const trimmedContent = intent.content.trim();
+  if (trimmedContent.length < 3) {
+    return {
+      action: 'store',
+      status: 'error',
+      message: `Content too short: "${trimmedContent}". Please provide meaningful content (at least 3 characters).`,
+    };
+  }
+
+  const meaninglessPatterns = [/^(that|this|it|something)$/i, /^[a-z]$/i];
+
+  if (meaninglessPatterns.some((pattern) => pattern.test(trimmedContent))) {
+    return {
+      action: 'store',
+      status: 'error',
+      message: `Content "${trimmedContent}" is too vague. Please provide more specific information.`,
+    };
+  }
+
   if (!projectId) {
     return {
       action: 'store',
@@ -600,9 +619,26 @@ async function handleEpisodeBegin(
     };
   }
 
-  const name = intent.name ?? intent.content ?? 'Untitled episode';
+  const rawName = intent.name ?? intent.content ?? '';
+  const name = rawName.trim();
 
-  // Create and immediately start the episode
+  if (name.length === 0) {
+    return {
+      action: 'episode_begin',
+      status: 'error',
+      message:
+        'Episode name cannot be empty. Please provide a descriptive name like "Fix auth bug" or "Implement user login".',
+    };
+  }
+
+  if (name.length < 3) {
+    return {
+      action: 'episode_begin',
+      status: 'error',
+      message: `Episode name "${name}" is too short. Please provide a more descriptive name (at least 3 characters).`,
+    };
+  }
+
   const created = await context.services.episode.create({
     scopeType: 'project',
     scopeId: projectId,

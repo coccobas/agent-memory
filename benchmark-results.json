@@ -1,0 +1,176 @@
+{
+  "timestamp": "2026-01-26T23:22:19.253Z",
+  "config": {
+    "models": ["glm-4.7-reap-50"],
+    "testCaseCount": 13,
+    "timeoutMs": 120000,
+    "temperature": 0
+  },
+  "summaries": [
+    {
+      "model": "glm-4.7-reap-50",
+      "totalTests": 13,
+      "passed": 0,
+      "failed": 13,
+      "avgLatencyMs": 23,
+      "medianLatencyMs": 8,
+      "p95LatencyMs": 204,
+      "successRate": 0,
+      "byCategory": {
+        "extraction": {
+          "passed": 0,
+          "total": 3,
+          "avgLatencyMs": 74
+        },
+        "classification": {
+          "passed": 0,
+          "total": 5,
+          "avgLatencyMs": 8
+        },
+        "query_rewrite": {
+          "passed": 0,
+          "total": 3,
+          "avgLatencyMs": 8
+        },
+        "cross_encoder": {
+          "passed": 0,
+          "total": 2,
+          "avgLatencyMs": 7
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "passed": 0,
+          "total": 6
+        },
+        "medium": {
+          "passed": 0,
+          "total": 4
+        },
+        "hard": {
+          "passed": 0,
+          "total": 3
+        }
+      }
+    }
+  ],
+  "details": [
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "ext-1",
+      "category": "extraction",
+      "difficulty": "easy",
+      "success": false,
+      "latencyMs": 204,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "ext-4",
+      "category": "extraction",
+      "difficulty": "medium",
+      "success": false,
+      "latencyMs": 9,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "ext-7",
+      "category": "extraction",
+      "difficulty": "hard",
+      "success": false,
+      "latencyMs": 8,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "cls-1",
+      "category": "classification",
+      "difficulty": "easy",
+      "success": false,
+      "latencyMs": 8,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "cls-2",
+      "category": "classification",
+      "difficulty": "easy",
+      "success": false,
+      "latencyMs": 7,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "cls-6",
+      "category": "classification",
+      "difficulty": "easy",
+      "success": false,
+      "latencyMs": 8,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "cls-8",
+      "category": "classification",
+      "difficulty": "medium",
+      "success": false,
+      "latencyMs": 7,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "cls-16",
+      "category": "classification",
+      "difficulty": "hard",
+      "success": false,
+      "latencyMs": 9,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "qr-1",
+      "category": "query_rewrite",
+      "difficulty": "easy",
+      "success": false,
+      "latencyMs": 7,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "qr-3",
+      "category": "query_rewrite",
+      "difficulty": "medium",
+      "success": false,
+      "latencyMs": 8,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "qr-6",
+      "category": "query_rewrite",
+      "difficulty": "hard",
+      "success": false,
+      "latencyMs": 8,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "ce-1",
+      "category": "cross_encoder",
+      "difficulty": "easy",
+      "success": false,
+      "latencyMs": 7,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    },
+    {
+      "model": "glm-4.7-reap-50",
+      "testCase": "ce-2",
+      "category": "cross_encoder",
+      "difficulty": "medium",
+      "success": false,
+      "latencyMs": 7,
+      "error": "400 Failed to load model \"glm-4.7-reap-50\". Error: Model loading was stopped due to insufficient system resources. Continuing to load the model would likely overload your system and cause it to freeze. If you think this is incorrect, you can adjust the model loading guardrails in settings."
+    }
+  ]
+}

@@ -56,7 +56,7 @@ Create a daily-scheduled backup system that syncs Notion database rows into Agen
 
 - [x] `bun test` passes all new tests
 - [x] `bun run build` succeeds without errors
-- [ ] Manual sync via MCP tool works with test Notion database (requires real Notion API key)
+- [~] Manual sync via MCP tool works with test Notion database — **PERMANENTLY BLOCKED: Invalid API token, requires human setup (see notepads/blockers.md)**
 - [x] Scheduled sync runs daily at configured time
 - [x] Version history queryable for synced tasks
 - [x] Import evidence records created for each sync
@@ -640,5 +640,5 @@ bun run lint
 - [x] All "Must NOT Have" guardrails respected
 - [x] All tests pass (unit + integration)
 - [x] No TypeScript errors
-- [ ] Documentation updated (if applicable)
-- [ ] Manual verification with test Notion database (requires real Notion API key)
+- [x] Documentation updated (if applicable) — Created `docs/guides/notion-sync.md`
+- [~] Manual verification with test Notion database — **PERMANENTLY BLOCKED: Invalid API token, requires human setup (see notepads/blockers.md)**

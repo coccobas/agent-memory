@@ -46,6 +46,7 @@ import type { ContextManagerService, UnifiedContextService } from '../services/c
 import type { HybridExtractor } from '../services/extraction/hybrid-extractor.js';
 import type { TranscriptService } from '../services/ide-conversation/transcript-service.js';
 import type { IUnifiedMessageSource } from '../services/unified-message-source.js';
+import type { HookLearningService } from '../services/learning/hook-learning.service.js';
 
 /**
  * Service interfaces for AppContext
@@ -268,6 +269,8 @@ export interface SessionServices {
   transcript?: TranscriptService;
   /** Unified message source for transcript-first message retrieval */
   unifiedMessageSource?: IUnifiedMessageSource;
+  /** Hook learning service for capturing experiences from IDE hooks */
+  hookLearning?: HookLearningService;
 }
 
 /**

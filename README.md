@@ -265,7 +265,7 @@ AGENT_MEMORY_REST_ENABLED=true AGENT_MEMORY_REST_API_KEY=secret npx agent-memory
 ## ⚙️ Configuration
 
 ```bash
-# Where to store data
+# Where to store data (default: ~/.agent-memory for npm installs, ./data for development)
 AGENT_MEMORY_DATA_DIR=~/.agent-memory
 
 # Enable semantic search (optional)

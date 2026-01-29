@@ -35,7 +35,7 @@ import {
 import { formatTimestamps } from '../../utils/timestamp-formatter.js';
 import { createPermissionError, createValidationError } from '../../core/errors.js';
 import { getCorrelationId } from '../../utils/correlation.js';
-import { DEFAULT_LIMIT, MAX_LIMIT } from '../../db/repositories/base.js';
+import { MAX_LIMIT } from '../../db/repositories/base.js';
 
 const queryTypeToEntryType = {
   tools: 'tool',
@@ -153,8 +153,15 @@ export const queryHandlers = {
       limit: (() => {
         const rawLimit = getOptionalParam(params, 'limit', isNumber);
         if (rawLimit === undefined) return undefined;
-        if (rawLimit < 0) return DEFAULT_LIMIT;
-        return Math.min(rawLimit, MAX_LIMIT);
+        // Validation: reject negative limits
+        if (rawLimit < 0) {
+          throw createValidationError('limit', 'must be non-negative', `Got ${rawLimit}`);
+        }
+        // Cap at MAX_LIMIT to prevent performance issues
+        if (rawLimit > MAX_LIMIT) {
+          throw createValidationError('limit', `must be at most ${MAX_LIMIT}`, `Got ${rawLimit}`);
+        }
+        return rawLimit;
       })(),
       compact: getOptionalParam(params, 'compact', isBoolean),
       semanticSearch: getOptionalParam(params, 'semanticSearch', isBoolean),
@@ -259,8 +266,19 @@ export const queryHandlers = {
     const limitPerType = (() => {
       const rawLimit = getOptionalParam(params, 'limitPerType', isNumber);
       if (rawLimit === undefined) return undefined;
-      if (rawLimit < 0) return DEFAULT_LIMIT;
-      return Math.min(rawLimit, MAX_LIMIT);
+      // Validation: reject negative limits
+      if (rawLimit < 0) {
+        throw createValidationError('limitPerType', 'must be non-negative', `Got ${rawLimit}`);
+      }
+      // Cap at MAX_LIMIT to prevent performance issues
+      if (rawLimit > MAX_LIMIT) {
+        throw createValidationError(
+          'limitPerType',
+          `must be at most ${MAX_LIMIT}`,
+          `Got ${rawLimit}`
+        );
+      }
+      return rawLimit;
     })();
     const agentId = getOptionalParam(params, 'agentId', isString);
     const semanticSearch = getOptionalParam(params, 'semanticSearch', isBoolean);

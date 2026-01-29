@@ -6,9 +6,11 @@ import {
   detectProjectMentions,
   detectQuestionTopics,
   detectConflicts,
+  detectOutcome,
   type ComplexitySignals,
   type PatternMention,
   type Conflict,
+  type OutcomeSignals,
 } from '../../src/utils/transcript-analysis.js';
 
 function createTurn(
@@ -643,6 +645,251 @@ describe('detectConflicts', () => {
       const result = detectConflicts(transcript);
 
       expect(result).toHaveLength(0);
+    });
+  });
+});
+
+describe('detectOutcome', () => {
+  describe('basic functionality', () => {
+    it('should return unknown for empty transcript', () => {
+      const result = detectOutcome([]);
+
+      expect(result.outcomeType).toBe('unknown');
+      expect(result.confidence).toBe(0);
+    });
+
+    it('should return unknown for trivial conversation without signals', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi there, how can I help?' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('unknown');
+      expect(result.confidence).toBeLessThan(0.5);
+    });
+  });
+
+  describe('success detection', () => {
+    it('should detect "done" as success signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Fix the bug' },
+        { role: 'assistant', content: 'I fixed the issue' },
+        { role: 'user', content: 'Done, thanks!' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('success');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('should detect "thanks" as success signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Can you help me?' },
+        { role: 'assistant', content: 'Here is the solution' },
+        { role: 'user', content: 'Thank you, that works!' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('success');
+    });
+
+    it('should detect "works" as success signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'The code is broken' },
+        { role: 'assistant', content: 'I applied the fix' },
+        { role: 'user', content: 'It works now!' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('success');
+    });
+
+    it('should detect "perfect" as success signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Update the config' },
+        { role: 'assistant', content: 'Done updating' },
+        { role: 'user', content: 'Perfect!' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('success');
+    });
+
+    it('should detect "lgtm" as success signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Review the code' },
+        { role: 'assistant', content: 'Here are my changes' },
+        { role: 'user', content: 'LGTM, ship it' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('success');
+    });
+  });
+
+  describe('failure detection', () => {
+    it('should detect "still broken" as failure signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Fix the bug' },
+        { role: 'assistant', content: 'I tried this approach' },
+        { role: 'user', content: 'Still broken, nothing changed' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('failure');
+    });
+
+    it('should detect "doesn\'t work" as failure signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Update the function' },
+        { role: 'assistant', content: 'Here is the update' },
+        { role: 'user', content: "That doesn't work either" },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('failure');
+    });
+
+    it('should detect "give up" as failure signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Debug this issue' },
+        { role: 'assistant', content: 'I tried multiple approaches' },
+        { role: 'user', content: "I give up on this, it's too broken" },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('failure');
+    });
+
+    it('should detect "stuck" as failure signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Help me with this' },
+        { role: 'assistant', content: 'Here is what I found' },
+        { role: 'user', content: "I'm stuck, this still doesn't work" },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('failure');
+    });
+  });
+
+  describe('partial completion detection', () => {
+    it('should detect "almost" as partial signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Implement the feature' },
+        { role: 'assistant', content: 'Here is the implementation' },
+        { role: 'user', content: "Almost there, but there's one more thing" },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('partial');
+    });
+
+    it('should detect "some progress" as partial signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Refactor the code' },
+        { role: 'assistant', content: 'I made some changes' },
+        { role: 'user', content: 'We made some progress but need more effort here' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('partial');
+    });
+
+    it('should detect "except for" as partial signal', () => {
+      const transcript = createTranscript([
+        { role: 'user', content: 'Update all files' },
+        { role: 'assistant', content: 'Updating now' },
+        { role: 'user', content: 'Mostly there except for the config file' },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.outcomeType).toBe('partial');
+    });
+  });
+
+  describe('recent message weighting', () => {
+    it('should weight recent messages higher than older ones', () => {
+      const transcriptSuccessRecent = createTranscript([
+        { role: 'user', content: 'This has issues' },
+        { role: 'assistant', content: 'Let me try again' },
+        { role: 'user', content: 'Now it works, thanks!' },
+      ]);
+
+      const transcriptFailureRecent = createTranscript([
+        { role: 'user', content: 'Ok' },
+        { role: 'assistant', content: 'Let me try something else' },
+        { role: 'user', content: "Still broken, doesn't work at all" },
+      ]);
+
+      const successResult = detectOutcome(transcriptSuccessRecent);
+      const failureResult = detectOutcome(transcriptFailureRecent);
+
+      expect(successResult.outcomeType).toBe('success');
+      expect(failureResult.outcomeType).toBe('failure');
+    });
+  });
+
+  describe('confidence calculation', () => {
+    it('should have higher confidence with multiple success signals', () => {
+      const singleSignal = createTranscript([
+        { role: 'user', content: 'Fix it' },
+        { role: 'user', content: 'Done' },
+      ]);
+
+      const multipleSignals = createTranscript([
+        { role: 'user', content: 'Fix it' },
+        { role: 'user', content: 'Done, thanks! Perfect, it works!' },
+      ]);
+
+      const singleResult = detectOutcome(singleSignal);
+      const multipleResult = detectOutcome(multipleSignals);
+
+      expect(multipleResult.confidence).toBeGreaterThanOrEqual(singleResult.confidence);
+    });
+
+    it('should cap confidence at 0.9', () => {
+      const transcript = createTranscript([
+        {
+          role: 'user',
+          content: 'Done thanks perfect works great awesome excellent finished completed',
+        },
+      ]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result.confidence).toBeLessThanOrEqual(0.9);
+    });
+  });
+
+  describe('return structure', () => {
+    it('should return outcomeType, confidence, signals, and reasoning', () => {
+      const transcript = createTranscript([{ role: 'user', content: 'Thanks, it works!' }]);
+
+      const result = detectOutcome(transcript);
+
+      expect(result).toHaveProperty('outcomeType');
+      expect(result).toHaveProperty('confidence');
+      expect(result).toHaveProperty('signals');
+      expect(result).toHaveProperty('reasoning');
+      expect(typeof result.outcomeType).toBe('string');
+      expect(typeof result.confidence).toBe('number');
+      expect(Array.isArray(result.signals)).toBe(true);
+      expect(typeof result.reasoning).toBe('string');
     });
   });
 });

@@ -40,7 +40,6 @@ export interface CriticalGuidelinesResult {
   count: number;
   guidelines: CriticalGuideline[];
   message: string | null;
-  acknowledgmentRequired: boolean;
 }
 
 // =============================================================================
@@ -178,9 +177,8 @@ export function getCriticalGuidelinesForSession(
     guidelines,
     message:
       guidelines.length > 0
-        ? `CRITICAL: ${guidelines.length} guideline(s) with priority >= ${CRITICAL_PRIORITY_THRESHOLD} require acknowledgment before proceeding.`
+        ? `CRITICAL: ${guidelines.length} guideline(s) with priority >= ${CRITICAL_PRIORITY_THRESHOLD} should be reviewed.`
         : null,
-    acknowledgmentRequired: guidelines.length > 0,
   };
 }
 

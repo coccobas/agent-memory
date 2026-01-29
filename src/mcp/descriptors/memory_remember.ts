@@ -403,8 +403,22 @@ export const memoryRememberDescriptor: SimpleToolDescriptor = {
     };
 
     if (ctx.services.classification) {
-      // Use hybrid classification with learning
-      classificationResult = await ctx.services.classification.classify(text, forceType);
+      try {
+        // Use hybrid classification with learning (with timeout protection)
+        classificationResult = await ctx.services.classification.classify(text, forceType);
+      } catch (error) {
+        // Timeout or classification error - fall back to simple detection
+        const detectedType = forceType ?? 'knowledge';
+        classificationResult = {
+          type: detectedType,
+          confidence: forceType ? 1.0 : 0.5,
+          method: forceType ? 'forced' : 'timeout_fallback',
+        };
+        // Log for debugging but don't block the operation
+        if (error instanceof Error && error.message.includes('timeout')) {
+          // Expected timeout - classification service may be slow
+        }
+      }
     } else {
       // Fallback: simple forced type or default to knowledge
       classificationResult = {

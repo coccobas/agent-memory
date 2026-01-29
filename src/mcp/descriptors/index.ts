@@ -33,7 +33,6 @@ import { memoryInitDescriptor } from './memory_init.js';
 import { memoryExportDescriptor } from './memory_export.js';
 import { memoryImportDescriptor } from './memory_import.js';
 import { memoryConversationDescriptor } from './memory_conversation.js';
-import { memoryVerifyDescriptor } from './memory_verify.js';
 import { memoryHookDescriptor } from './memory_hook.js';
 import { memoryObserveDescriptor } from './memory_observe.js';
 import { memoryConsolidateDescriptor } from './memory_consolidate.js';
@@ -63,6 +62,7 @@ import { memoryOpsDescriptor } from './memory_ops.js';
 import { memoryOnboardDescriptor } from './memory_onboard.js';
 import { memoryWalkthroughDescriptor } from './memory_walkthrough.js';
 import { notionSyncDescriptor } from './notion_sync.js';
+import { memoryCaptureDescriptor } from './memory_capture.js';
 
 import {
   type AnyToolDescriptor,
@@ -157,12 +157,12 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryExportDescriptor,
   // Import
   memoryImportDescriptor,
-  // Verification
-  memoryVerifyDescriptor,
   // Hook Management
   memoryHookDescriptor,
   // Auto-capture Observation
   memoryObserveDescriptor,
+  // Hook Learning Capture (block boundaries, conversation triggers)
+  memoryCaptureDescriptor,
   // Memory Consolidation
   memoryConsolidateDescriptor,
   // Review Candidates
@@ -269,7 +269,6 @@ export {
   memoryExportDescriptor,
   memoryImportDescriptor,
   memoryConversationDescriptor,
-  memoryVerifyDescriptor,
   memoryHookDescriptor,
   memoryObserveDescriptor,
   memoryConsolidateDescriptor,

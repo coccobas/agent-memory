@@ -340,6 +340,17 @@ export function initializeDatabase(
         return;
       }
 
+      // Warn if there are pending migrations (potential schema drift)
+      if (pendingMigrations.length > 0) {
+        logger.warn(
+          {
+            count: pendingMigrations.length,
+            migrations: pendingMigrations.map((m) => m.name),
+          },
+          'SCHEMA DRIFT WARNING: Pending migrations detected! Database schema may be outdated.'
+        );
+      }
+
       for (const migration of pendingMigrations) {
         if (options.verbose) {
           logger.info({ migration: migration.name }, 'Applying migration');
@@ -359,6 +370,30 @@ export function initializeDatabase(
       }
 
       result.success = true;
+
+      // Post-initialization health check: verify critical tables exist
+      const criticalTables = [
+        'episodes',
+        'sessions',
+        'projects',
+        'guidelines',
+        'knowledge',
+        'tools',
+      ];
+      const existingTables = sqlite
+        .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
+        .all() as { name: string }[];
+      const existingTableNames = new Set(existingTables.map((t) => t.name));
+
+      const missingTables = criticalTables.filter((table) => !existingTableNames.has(table));
+      if (missingTables.length > 0) {
+        logger.error(
+          { missing: missingTables, existing: Array.from(existingTableNames) },
+          'CRITICAL: Missing tables after migration! Database schema may be corrupted.'
+        );
+        result.errors.push(`Missing critical tables: ${missingTables.join(', ')}`);
+        result.success = false;
+      }
 
       if (options.verbose) {
         logger.info(

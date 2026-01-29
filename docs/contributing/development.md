@@ -99,11 +99,24 @@ npm run sync-rules:watch   # Watch and auto-sync on changes
 
 ## Local Data
 
-Development data is stored in `<repo>/data/`. Override with:
+**In development mode**, the database is automatically stored in `<repo>/data/memory.db`.
+
+The path resolution logic (in `src/config/registry/parsers.ts`):
+
+| Priority | Condition                                 | Path                    |
+| -------- | ----------------------------------------- | ----------------------- |
+| 1        | `AGENT_MEMORY_DATA_DIR` env var set       | Use that value          |
+| 2        | Running from `node_modules` (npm install) | `~/.agent-memory/data/` |
+| 3        | Running from source (development)         | `<repo>/data/`          |
+
+**No configuration needed for development** - it just works. Only set `AGENT_MEMORY_DATA_DIR` if you need to override:
 
 ```bash
-export AGENT_MEMORY_DATA_DIR=~/.agent-memory/data
+# Example: Use a separate dev database
+export AGENT_MEMORY_DATA_DIR=/tmp/agent-memory-dev
 ```
+
+> **Note**: The `~/.agent-memory/` path shown in other docs is for **production installs** via npm, not development.
 
 ## Project Structure
 

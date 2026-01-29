@@ -83,6 +83,8 @@ export interface IIDETranscriptRepository {
 
   linkToSession(transcriptId: string, agentMemorySessionId: string): Promise<void>;
 
+  updateIDESessionId(transcriptId: string, ideSessionId: string): Promise<void>;
+
   linkMessagesToEpisode(params: {
     episodeId: string;
     transcriptId: string;

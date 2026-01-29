@@ -184,7 +184,7 @@ describe('Experience Handlers', () => {
 
       const result = await experienceHandlers.add_step(mockContext, {
         id: 'exp-1',
-        action: 'Read file',
+        stepAction: 'Read file',
         observation: 'File contents found',
         agentId: 'agent-1',
       });
@@ -202,7 +202,7 @@ describe('Experience Handlers', () => {
 
       await experienceHandlers.add_step(mockContext, {
         id: 'exp-1',
-        action: 'Use grep',
+        stepAction: 'Use grep',
         reasoning: 'Need to find pattern',
         toolUsed: 'Grep',
         success: true,

@@ -203,7 +203,7 @@ describe('Librarian Integration', () => {
           await experienceHandlers.add_step(context, {
             id: expResult.experience.id,
             agentId: AGENT_ID,
-            action: 'Read config file',
+            stepAction: 'Read config file',
             observation: 'Found missing key',
             success: true,
           });
@@ -211,7 +211,7 @@ describe('Librarian Integration', () => {
           await experienceHandlers.add_step(context, {
             id: expResult.experience.id,
             agentId: AGENT_ID,
-            action: 'Edit configuration',
+            stepAction: 'Edit configuration',
             observation: 'Added missing key',
             success: true,
           });
@@ -219,7 +219,7 @@ describe('Librarian Integration', () => {
           await experienceHandlers.add_step(context, {
             id: expResult.experience.id,
             agentId: AGENT_ID,
-            action: 'Test application',
+            stepAction: 'Test application',
             observation: 'Application started successfully',
             success: true,
           });

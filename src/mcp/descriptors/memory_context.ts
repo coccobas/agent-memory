@@ -16,6 +16,11 @@ import {
 import type { ScopeType } from '../../db/schema.js';
 import { config } from '../../config/index.js';
 import { formatContextMinto, type ContextMintoInput } from '../../utils/minto-formatter.js';
+import {
+  verifyAction,
+  type ProposedAction,
+  type ProposedActionType,
+} from '../../services/verification.service.js';
 
 /**
  * Map purpose string to ContextPurpose object
@@ -61,6 +66,7 @@ export const memoryContextDescriptor: ToolDescriptor = {
 
 Actions:
 - get: Retrieve context for a specific purpose (session_start, tool_injection, query, custom)
+- verify: Verify a proposed action against verification rules (file writes, content patterns, etc.)
 - budget-info: Get budget configuration for all purposes
 - stats: Get statistics about stored context
 - show: Show auto-detected context (diagnostic)
@@ -71,6 +77,9 @@ Example (get context for session start):
 
 Example (get context for tool injection):
 {"action":"get","purpose":"tool_injection","toolName":"Edit","scopeType":"project","scopeId":"proj-123"}
+
+Example (verify a file write action):
+{"action":"verify","actionType":"file_write","filePath":"config.ts","content":"const API_KEY = 'sk-...'","projectId":"proj-123"}
 
 Example (get budget info):
 {"action":"budget-info"}`,
@@ -238,6 +247,81 @@ Example (get budget info):
         }
 
         return result;
+      },
+    },
+
+    // =========================================================================
+    // VERIFICATION ACTION
+    // =========================================================================
+    verify: {
+      params: {
+        actionType: {
+          type: 'string',
+          enum: ['file_write', 'code_generate', 'api_call', 'command', 'other'],
+          description: 'Type of action being verified',
+        },
+        filePath: {
+          type: 'string',
+          description: 'File path for file_write actions',
+        },
+        content: {
+          type: 'string',
+          description: 'Content being written or generated',
+        },
+        description: {
+          type: 'string',
+          description: 'Human-readable description of the action',
+        },
+        sessionId: {
+          type: 'string',
+          description: 'Session ID for scope resolution',
+        },
+        projectId: {
+          type: 'string',
+          description: 'Project ID for scope resolution',
+        },
+      },
+      contextHandler: async (ctx, params) => {
+        const { actionType, filePath, content, description, sessionId, projectId } = params as {
+          actionType?: string;
+          filePath?: string;
+          content?: string;
+          description?: string;
+          sessionId?: string;
+          projectId?: string;
+        };
+
+        // Map action type
+        const validActionTypes = ['file_write', 'code_generate', 'api_call', 'command', 'other'];
+        const type: ProposedActionType = validActionTypes.includes(actionType ?? '')
+          ? (actionType as ProposedActionType)
+          : 'other';
+
+        // Build proposed action
+        const proposedAction: ProposedAction = {
+          type,
+          description,
+          filePath,
+          content,
+        };
+
+        // Run verification
+        const result = verifyAction(sessionId ?? null, projectId ?? null, proposedAction, ctx.db);
+
+        // Return in a format the plugin can easily check
+        return {
+          allowed: result.allowed,
+          blocked: result.blocked,
+          violations: result.violations,
+          warnings: result.warnings,
+          requiresConfirmation: result.requiresConfirmation,
+          confirmationPrompt: result.confirmationPrompt,
+          message: result.blocked
+            ? `Blocked: ${result.violations.map((v) => v.message).join('; ')}`
+            : result.warnings.length > 0
+              ? `Warning: ${result.warnings.join('; ')}`
+              : 'Action allowed',
+        };
       },
     },
 

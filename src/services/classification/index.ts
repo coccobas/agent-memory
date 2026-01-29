@@ -151,13 +151,31 @@ export class ClassificationService implements IClassificationService {
     const regexResult = await this.patternMatcher.match(text);
     const VERY_HIGH_CONFIDENCE = 0.95;
 
-    if (regexResult.confidence >= VERY_HIGH_CONFIDENCE) {
+    // Apply penalty if guideline contains bug keywords without prescriptive language
+    let adjustedConfidence = regexResult.confidence;
+    if (regexResult.type === 'guideline') {
+      const bugKeywords =
+        /\b(bug|issue|broken|error|doesn't work|not working|problem with|fails|crashing)\b/i;
+      const prescriptiveWords =
+        /\b(must|should|always|never|use|avoid|prefer|require|recommend)\b/i;
+
+      if (bugKeywords.test(text) && !prescriptiveWords.test(text)) {
+        adjustedConfidence *= 0.3;
+        logger.debug(
+          { originalConfidence: regexResult.confidence, adjustedConfidence },
+          'Penalized guideline confidence due to bug keywords without prescriptive language'
+        );
+      }
+    }
+
+    if (adjustedConfidence >= VERY_HIGH_CONFIDENCE) {
       logger.debug(
-        { type: regexResult.type, confidence: regexResult.confidence },
+        { type: regexResult.type, confidence: adjustedConfidence },
         'Very high confidence pattern match - skipping LLM'
       );
       const result: ClassificationResult = {
         ...regexResult,
+        confidence: adjustedConfidence,
         method: 'regex',
       };
       this.cache.set(cacheKey, result);
@@ -183,13 +201,14 @@ export class ClassificationService implements IClassificationService {
     }
 
     // 5. High confidence → use regex directly
-    if (regexResult.confidence >= this.config.highConfidenceThreshold) {
+    if (adjustedConfidence >= this.config.highConfidenceThreshold) {
       logger.debug(
-        { type: regexResult.type, confidence: regexResult.confidence },
+        { type: regexResult.type, confidence: adjustedConfidence },
         'High confidence regex match'
       );
       const result: ClassificationResult = {
         ...regexResult,
+        confidence: adjustedConfidence,
         method: 'regex',
       };
       this.cache.set(cacheKey, result);
@@ -199,13 +218,10 @@ export class ClassificationService implements IClassificationService {
     // 6. Low confidence → LLM fallback if available (and not already tried)
     if (
       !this.config.preferLLM &&
-      regexResult.confidence < this.config.lowConfidenceThreshold &&
+      adjustedConfidence < this.config.lowConfidenceThreshold &&
       this.isLLMAvailable()
     ) {
-      logger.debug(
-        { regexConfidence: regexResult.confidence },
-        'Low confidence, using LLM fallback'
-      );
+      logger.debug({ regexConfidence: adjustedConfidence }, 'Low confidence, using LLM fallback');
       const llmResult = await this.classifyWithLLM(text);
       if (llmResult) {
         const result: ClassificationResult = {
@@ -227,7 +243,7 @@ export class ClassificationService implements IClassificationService {
     // 6. Middle zone → LLM verification if available
     if (this.isLLMAvailable()) {
       logger.debug(
-        { regexConfidence: regexResult.confidence },
+        { regexConfidence: adjustedConfidence },
         'Middle confidence, verifying with LLM'
       );
       const llmResult = await this.classifyWithLLM(text);
@@ -236,7 +252,7 @@ export class ClassificationService implements IClassificationService {
         if (llmResult.type === regexResult.type) {
           const result: ClassificationResult = {
             ...regexResult,
-            confidence: Math.min(0.95, regexResult.confidence + 0.1),
+            confidence: Math.min(0.95, adjustedConfidence + 0.1),
             method: 'hybrid',
             llmReasoning: llmResult.reasoning,
           };
@@ -250,7 +266,7 @@ export class ClassificationService implements IClassificationService {
           confidence: llmResult.confidence,
           method: 'hybrid',
           llmReasoning: llmResult.reasoning,
-          alternativeTypes: [{ type: regexResult.type, confidence: regexResult.confidence }],
+          alternativeTypes: [{ type: regexResult.type, confidence: adjustedConfidence }],
           adjustedByFeedback: false,
         };
         this.cache.set(cacheKey, result);
@@ -260,12 +276,12 @@ export class ClassificationService implements IClassificationService {
 
     // 7. Fallback to regex result
     logger.debug(
-      { type: regexResult.type, confidence: regexResult.confidence },
+      { type: regexResult.type, confidence: adjustedConfidence },
       'Using regex result (LLM unavailable or failed)'
     );
     const result: ClassificationResult = {
       type: regexResult.type,
-      confidence: regexResult.confidence,
+      confidence: adjustedConfidence,
       method: 'regex',
       patternMatches: regexResult.patternMatches,
       adjustedByFeedback: regexResult.adjustedByFeedback,

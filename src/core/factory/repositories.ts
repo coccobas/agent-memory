@@ -31,6 +31,7 @@ import { createEpisodeRepository } from '../../db/repositories/episodes.js';
 import { createHookMetricsRepository } from '../../db/repositories/hook-metrics.js';
 import { createIDETranscriptRepository } from '../../db/repositories/ide-transcripts.js';
 import { createErrorLogRepository } from '../../db/repositories/error-log.js';
+import { createToolOutcomesRepository } from '../../db/repositories/tool-outcomes.js';
 
 /**
  * Create all repositories with injected dependencies
@@ -76,5 +77,7 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     ideTranscripts: createIDETranscriptRepository(deps),
     // Error log repository (Cross-session error tracking)
     errorLog: createErrorLogRepository(deps),
+    // Tool outcomes repository (Event-level tool execution tracking)
+    toolOutcomes: createToolOutcomesRepository(deps),
   };
 }

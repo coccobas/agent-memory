@@ -26,7 +26,6 @@ import { addHealthCommand } from './commands/health.js';
 import { addConflictCommand } from './commands/conflict.js';
 import { addAnalyticsCommand } from './commands/analytics.js';
 import { addConsolidateCommand } from './commands/consolidate.js';
-import { addVerifyCommand } from './commands/verify.js';
 import { addConversationCommand } from './commands/conversation.js';
 import { addObserveCommand } from './commands/observe.js';
 import { addTaskCommand } from './commands/task.js';
@@ -97,7 +96,6 @@ function registerCommands(program: Command): void {
   addConflictCommand(program);
   addAnalyticsCommand(program);
   addConsolidateCommand(program);
-  addVerifyCommand(program);
 
   // Conversation & extraction
   addConversationCommand(program);

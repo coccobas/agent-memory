@@ -138,9 +138,26 @@ export function createTranscriptService(
         ? new Date(transcript.lastMessageTimestamp)
         : undefined;
 
-      const messages = await reader.getMessages(transcript.ideSessionId, {
+      let messages = await reader.getMessages(transcript.ideSessionId, {
         after: afterTimestamp,
       });
+
+      if (messages.length === 0 && transcript.projectPath) {
+        const currentSessionId = await this.getCurrentIDESessionId(transcript.projectPath);
+        const sessionChanged = currentSessionId && currentSessionId !== transcript.ideSessionId;
+
+        if (sessionChanged) {
+          logger.info(
+            { transcriptId, oldSession: transcript.ideSessionId, newSession: currentSessionId },
+            'Detected IDE session change, fetching from new session'
+          );
+          messages = await reader.getMessages(currentSessionId);
+
+          if (messages.length > 0) {
+            await transcriptRepo.updateIDESessionId(transcriptId, currentSessionId);
+          }
+        }
+      }
 
       if (messages.length === 0) {
         logger.debug({ transcriptId }, 'No new messages to append');

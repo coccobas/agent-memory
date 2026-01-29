@@ -198,7 +198,7 @@ const TRIGGER_PATTERNS: TriggerPattern[] = [
     type: 'command',
     confidence: 0.8,
     suggestedType: 'tool',
-    priorityBoost: 15,
+    priorityBoost: 25,
     patterns: [
       /\b(run\s+(this|the)\s+command:?)/gi,
       /\b(use\s+(this|the)\s+command:?)/gi,

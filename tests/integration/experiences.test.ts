@@ -338,7 +338,7 @@ describe('Experiences Integration', () => {
       const result = await experienceHandlers.add_step(context, {
         agentId: AGENT_ID,
         id: experience.id,
-        action: 'New step',
+        stepAction: 'New step',
         observation: 'Observed something',
         reasoning: 'Because of this',
         toolUsed: 'grep',
@@ -363,13 +363,13 @@ describe('Experiences Integration', () => {
       await experienceHandlers.add_step(context, {
         agentId: AGENT_ID,
         id: addResult.experience.id,
-        action: 'Step 2',
+        stepAction: 'Step 2',
       });
 
       await experienceHandlers.add_step(context, {
         agentId: AGENT_ID,
         id: addResult.experience.id,
-        action: 'Step 3',
+        stepAction: 'Step 3',
       });
 
       const trajectory = await experienceHandlers.get_trajectory(context, {

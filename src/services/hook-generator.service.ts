@@ -57,7 +57,7 @@ export function generateClaudeCodeHookScript(params?: { projectId?: string }): s
 #
 # Purpose:
 # - Enforce critical guidelines BEFORE running Edit/Write/Bash (blocks on violations)
-# - Does not rely on the model remembering to call memory_verify
+# - Automatic enforcement via hooks (no explicit tool calls needed)
 
 set -euo pipefail
 
@@ -567,7 +567,7 @@ export function generateCursorRulesFile(
 ## MUST FOLLOW - Priority 90+
 
 These guidelines are critical and must be followed in all interactions.
-Call \`memory_verify pre_check\` before file modifications.
+Hook enforcement happens automatically before Edit/Write/Bash operations.
 
 `;
 

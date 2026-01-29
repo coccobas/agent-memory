@@ -108,6 +108,23 @@ async function detectRedFlagsImpl(
   }
 
   // Built-in pattern checks
+
+  // Check for bug reports incorrectly stored as guidelines
+  if (entry.type === 'guideline') {
+    const bugKeywords =
+      /\b(bug|issue|broken|error|doesn't work|not working|problem with|fails|crashing)\b/i;
+    const prescriptiveWords = /\b(must|should|always|never|use|avoid|prefer|require|recommend)\b/i;
+
+    if (bugKeywords.test(entry.content) && !prescriptiveWords.test(entry.content)) {
+      flags.push({
+        pattern: 'bug_report_in_guideline',
+        severity: 'high',
+        description:
+          'Content appears to describe a bug/issue rather than a rule/standard. Should be stored as knowledge instead.',
+      });
+    }
+  }
+
   // Check for malformed JSON - only flag structures that look like intended JSON
   // Skip common non-JSON patterns like [Image: ...], [action], {placeholder}
   if (

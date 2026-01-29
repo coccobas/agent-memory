@@ -542,3 +542,64 @@ describe('LLM-Preferred Mode', () => {
     expect(mockExtraction.extractForClassification).not.toHaveBeenCalled();
   });
 });
+
+describe('Bug Keyword Detection (Blocklist)', () => {
+  let patternMatcher: PatternMatcher;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    patternMatcher = new PatternMatcher(mockRepo, defaultConfig);
+  });
+
+  it('should NOT classify bug reports as guidelines', async () => {
+    const bugReports = [
+      'Bug: authentication is broken',
+      'Issue with user login',
+      'Error when submitting form',
+      'The API is crashing',
+      "Feature X doesn't work",
+      'Problem with the database connection',
+    ];
+
+    for (const text of bugReports) {
+      const result = await patternMatcher.match(text);
+      expect(result.type).not.toBe('guideline');
+    }
+  });
+
+  it('should redirect bug reports to knowledge', async () => {
+    const result = await patternMatcher.match('Bug: authentication token expires too soon');
+    expect(result.type).toBe('knowledge');
+  });
+
+  it('should still allow guidelines with prescriptive language even if bug keywords present', async () => {
+    const validGuidelines = [
+      'Always check for bugs before deploying',
+      'Must fix critical errors immediately',
+      'Never ignore error messages',
+    ];
+
+    for (const text of validGuidelines) {
+      const result = await patternMatcher.match(text);
+      expect(result.type).toBe('guideline');
+    }
+  });
+
+  it('should classify questions as knowledge, not guidelines', async () => {
+    const questions = [
+      'How do we handle authentication?',
+      'Why does the API return 500?',
+      'What causes the timeout error?',
+    ];
+
+    for (const text of questions) {
+      const result = await patternMatcher.match(text);
+      expect(result.type).not.toBe('guideline');
+    }
+  });
+
+  it('should penalize fix patterns without prescriptive language', async () => {
+    const result = await patternMatcher.match('Fixed bug in user authentication');
+    expect(result.type).toBe('knowledge');
+  });
+});

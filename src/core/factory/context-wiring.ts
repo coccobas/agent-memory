@@ -201,6 +201,18 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
     services.librarian.setLatentMemoryService(services.latentMemory);
   }
 
+  if (services.hookLearning) {
+    services.hookLearning.setDependencies({
+      experienceRepo: repos.experiences,
+      knowledgeRepo: repos.knowledge,
+      guidelineRepo: repos.guidelines,
+      toolRepo: repos.tools,
+      taskRepo: repos.tasks,
+      librarianService: services.librarian,
+    });
+    logger.debug('Hook learning service dependencies wired');
+  }
+
   // Create ContextDetectionService (needs repos for project/session lookup)
   const contextDetectionService = createContextDetectionService(
     config,

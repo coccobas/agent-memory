@@ -80,7 +80,10 @@ Example: {"action":"learn","text":"Discovered the auth token expires after 1 hou
       enum: ['observation', 'reflection', 'user', 'promotion'],
       description: 'How this experience was created',
     },
-    // Trajectory steps
+    stepAction: {
+      type: 'string',
+      description: 'Action description for add_step (what was done)',
+    },
     steps: {
       type: 'array',
       description: 'Trajectory steps for case-level experiences',

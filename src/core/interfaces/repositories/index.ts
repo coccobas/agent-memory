@@ -33,6 +33,7 @@ import type { ITaskRepository } from '../../../db/repositories/tasks.js';
 import type { IEvidenceRepository } from '../../../db/repositories/evidence.js';
 import type { IHookMetricsRepository } from '../../../db/repositories/hook-metrics.js';
 import type { ErrorLogRepository } from '../../../db/repositories/error-log.js';
+import type { ToolOutcomesRepository } from '../../../db/repositories/tool-outcomes.js';
 export type { IConflictRepository, ListConflictsFilter };
 
 // Import types for Repositories aggregate
@@ -98,4 +99,6 @@ export interface Repositories {
   ideTranscripts?: IIDETranscriptRepository;
   // Error log repository (Cross-session error tracking)
   errorLog?: ErrorLogRepository;
+  // Tool outcomes repository (Event-level tool execution tracking)
+  toolOutcomes?: ToolOutcomesRepository;
 }

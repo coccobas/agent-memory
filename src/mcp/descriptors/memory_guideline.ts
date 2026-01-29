@@ -27,6 +27,34 @@ export const memoryGuidelineDescriptor: ToolDescriptor = {
         good: { type: 'array', items: { type: 'string' } },
       },
     },
+    verificationRules: {
+      type: 'object',
+      description:
+        'Machine-readable rules for automated compliance checking. Set to null to clear existing rules.',
+      properties: {
+        filePatterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'File path patterns that trigger this guideline (glob-like)',
+        },
+        contentPatterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Regex patterns to detect violations in file content',
+        },
+        forbiddenActions: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Action types that are forbidden (file_write, code_generate, api_call, command)',
+        },
+        requiredPatterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Regex patterns that must be present in content',
+        },
+      },
+    },
     createdBy: { type: 'string' },
     changeReason: { type: 'string' },
     updatedBy: { type: 'string' },

@@ -385,3 +385,135 @@ function subjectsOverlap(subject1: string, subject2: string): boolean {
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+export interface OutcomeSignals {
+  outcomeType: 'success' | 'partial' | 'failure' | 'unknown';
+  confidence: number;
+  signals: string[];
+  reasoning: string;
+}
+
+const SUCCESS_KEYWORDS: Array<{ pattern: RegExp; weight: number }> = [
+  { pattern: /\b(done|finished|completed|fixed|solved|works|working)\b/i, weight: 0.3 },
+  { pattern: /\b(thanks?|thank you|thx|ty)\b/i, weight: 0.25 },
+  { pattern: /\b(perfect|great|awesome|excellent|lgtm|nice)\b/i, weight: 0.2 },
+  { pattern: /\b(that('s| is) (it|all|exactly))\b/i, weight: 0.25 },
+  { pattern: /\b(looks good|ship it|merge it|good to go)\b/i, weight: 0.2 },
+  { pattern: /\b(it works|all good|we('re| are) good)\b/i, weight: 0.2 },
+];
+
+const FAILURE_KEYWORDS: Array<{ pattern: RegExp; weight: number }> = [
+  { pattern: /\b(still (broken|not working|failing))\b/i, weight: 0.3 },
+  { pattern: /\b(doesn't work|does not work|not working)\b/i, weight: 0.25 },
+  { pattern: /\b(give up|giving up|abandon|stuck)\b/i, weight: 0.3 },
+  { pattern: /\b(can't figure|cannot figure|no idea)\b/i, weight: 0.2 },
+  { pattern: /\b(failed|failure|broken|bug|error)\b/i, weight: 0.1 },
+  { pattern: /\b(try (again )?later|come back|revisit)\b/i, weight: 0.15 },
+];
+
+const PARTIAL_KEYWORDS: Array<{ pattern: RegExp; weight: number }> = [
+  { pattern: /\b(partially|mostly|almost|nearly)\b/i, weight: 0.2 },
+  { pattern: /\b(some progress|made progress|getting there)\b/i, weight: 0.15 },
+  { pattern: /\b(one (more )?issue|except for|but still)\b/i, weight: 0.15 },
+  { pattern: /\b(good start|first step|will continue)\b/i, weight: 0.15 },
+];
+
+/**
+ * Detect task outcome from conversation transcript using keyword analysis.
+ * Analyzes last N messages (where outcome signals are most likely) with higher weight,
+ * plus full transcript with reduced weight. Returns outcome type with confidence score.
+ */
+export function detectOutcome(
+  transcript: TurnData[],
+  options: { recentMessageCount?: number } = {}
+): OutcomeSignals {
+  const { recentMessageCount = 5 } = options;
+
+  if (transcript.length === 0) {
+    return {
+      outcomeType: 'unknown',
+      confidence: 0,
+      signals: [],
+      reasoning: 'No transcript available',
+    };
+  }
+
+  const recentMessages = transcript.slice(-recentMessageCount);
+  const recentText = recentMessages.map((t) => t.content).join(' ');
+  const fullText = transcript.map((t) => t.content).join(' ');
+
+  const signals: string[] = [];
+  let successScore = 0;
+  let failureScore = 0;
+  let partialScore = 0;
+
+  for (const { pattern, weight } of SUCCESS_KEYWORDS) {
+    const matches = recentText.match(pattern);
+    if (matches) {
+      successScore += weight * matches.length;
+      signals.push(`recent: ${matches[0]}`);
+    }
+  }
+
+  for (const { pattern, weight } of FAILURE_KEYWORDS) {
+    const matches = recentText.match(pattern);
+    if (matches) {
+      failureScore += weight * matches.length;
+      signals.push(`recent: ${matches[0]}`);
+    }
+  }
+
+  for (const { pattern, weight } of PARTIAL_KEYWORDS) {
+    const matches = recentText.match(pattern);
+    if (matches) {
+      partialScore += weight * matches.length;
+      signals.push(`recent: ${matches[0]}`);
+    }
+  }
+
+  for (const { pattern, weight } of SUCCESS_KEYWORDS) {
+    const matches = fullText.match(pattern);
+    if (matches) {
+      successScore += weight * 0.3 * Math.min(matches.length, 3);
+    }
+  }
+
+  successScore = Math.min(1.0, successScore);
+  failureScore = Math.min(1.0, failureScore);
+  partialScore = Math.min(1.0, partialScore);
+
+  let outcomeType: 'success' | 'partial' | 'failure' | 'unknown';
+  let confidence: number;
+  let reasoning: string;
+
+  const maxScore = Math.max(successScore, failureScore, partialScore);
+
+  if (maxScore < 0.15) {
+    outcomeType = 'unknown';
+    confidence = 0.3;
+    reasoning = 'No clear outcome signals detected';
+  } else if (successScore > failureScore && successScore > partialScore) {
+    outcomeType = 'success';
+    confidence = Math.min(0.9, 0.5 + successScore);
+    reasoning = `Success signals (${successScore.toFixed(2)}) outweigh failure (${failureScore.toFixed(2)}) and partial (${partialScore.toFixed(2)})`;
+  } else if (failureScore > successScore && failureScore > partialScore) {
+    outcomeType = 'failure';
+    confidence = Math.min(0.9, 0.5 + failureScore);
+    reasoning = `Failure signals (${failureScore.toFixed(2)}) outweigh success (${successScore.toFixed(2)}) and partial (${partialScore.toFixed(2)})`;
+  } else if (partialScore > successScore && partialScore > failureScore) {
+    outcomeType = 'partial';
+    confidence = Math.min(0.9, 0.5 + partialScore);
+    reasoning = `Partial completion signals (${partialScore.toFixed(2)}) are strongest`;
+  } else {
+    outcomeType = 'partial';
+    confidence = 0.4;
+    reasoning = `Mixed signals: success=${successScore.toFixed(2)}, failure=${failureScore.toFixed(2)}, partial=${partialScore.toFixed(2)}`;
+  }
+
+  return {
+    outcomeType,
+    confidence,
+    signals,
+    reasoning,
+  };
+}

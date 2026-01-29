@@ -24,7 +24,6 @@
  * - memory_backup (create, list, cleanup, restore)
  * - memory_consolidate (find_similar, dedupe, merge, abstract, archive_stale)
  * - memory_hook (generate, install, status, uninstall)
- * - memory_verify (pre_check, post_check, acknowledge, status)
  * - memory_observe (extract, draft, commit, status)
  *
  * Tool definitions are now generated from unified descriptors.
@@ -59,6 +58,11 @@ import { setNotificationServer, clearNotificationServer } from './notification.s
 import { initializeRootsService, handleRootsChanged, clearRootsState } from './roots.service.js';
 import { clearWorkingDirectoryCache } from '../utils/working-directory.js';
 import { createComponentLogger } from '../utils/logger.js';
+import {
+  createOutcomeInferenceService,
+  type OutcomeInferenceService,
+} from '../services/capture/outcome-inference.js';
+import type { TurnData } from '../services/capture/types.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -265,13 +269,39 @@ export async function runServer(
 
   const cleanupLogger = createComponentLogger('mcp-cleanup');
 
-  /**
-   * Clean up active sessions and episodes when client disconnects.
-   * This prevents orphaned sessions/episodes that stay "active" forever.
-   */
+  const outcomeInference: OutcomeInferenceService = createOutcomeInferenceService({
+    provider: config.extraction.provider === 'disabled' ? 'none' : config.extraction.provider,
+    confidenceThreshold: 0.6,
+  });
+
+  async function getSessionTranscript(sessionId: string): Promise<TurnData[]> {
+    try {
+      if (!context.services.unifiedMessageSource) {
+        return [];
+      }
+
+      const { messages } = await context.services.unifiedMessageSource.getMessagesForSession(
+        sessionId,
+        { limit: 20 }
+      );
+
+      return messages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: m.timestamp,
+        toolCalls: m.toolsUsed?.map((t) => ({ name: t, input: {}, success: true })),
+      }));
+    } catch (error) {
+      cleanupLogger.warn(
+        { sessionId, error: error instanceof Error ? error.message : String(error) },
+        'Failed to retrieve session transcript for outcome inference'
+      );
+      return [];
+    }
+  }
+
   async function cleanupActiveSessions(reason: string): Promise<void> {
     try {
-      // Get all active sessions
       const activeSessions = await context.repos.sessions.list(
         { status: 'active' },
         { limit: 100 }
@@ -289,22 +319,71 @@ export async function runServer(
 
       for (const session of activeSessions) {
         try {
-          // Cancel any active episodes for this session
           if (context.repos.episodes) {
             const activeEpisode = await context.repos.episodes.getActiveEpisode(session.id);
             if (activeEpisode) {
-              await context.repos.episodes.cancel(
-                activeEpisode.id,
-                `Session ended due to ${reason}`
-              );
+              const transcript = await getSessionTranscript(session.id);
+              const inferred = await outcomeInference.inferOutcome(transcript);
+
               cleanupLogger.debug(
-                { episodeId: activeEpisode.id, sessionId: session.id },
-                'Cancelled active episode'
+                {
+                  episodeId: activeEpisode.id,
+                  sessionId: session.id,
+                  inferredOutcome: inferred.outcomeType,
+                  confidence: inferred.confidence,
+                  method: inferred.method,
+                },
+                'Inferred episode outcome from transcript'
               );
+
+              if (inferred.confidence >= 0.5 && inferred.outcomeType !== 'unknown') {
+                const outcomeMap: Record<string, 'success' | 'partial' | 'failure' | 'abandoned'> =
+                  {
+                    success: 'success',
+                    partial: 'partial',
+                    failure: 'failure',
+                    unknown: 'abandoned',
+                  };
+                const mappedOutcome = outcomeMap[inferred.outcomeType] ?? 'abandoned';
+
+                if (mappedOutcome === 'success' || mappedOutcome === 'partial') {
+                  await context.repos.episodes.complete(
+                    activeEpisode.id,
+                    inferred.reasoning,
+                    mappedOutcome
+                  );
+                  cleanupLogger.info(
+                    {
+                      episodeId: activeEpisode.id,
+                      outcome: mappedOutcome,
+                      confidence: inferred.confidence,
+                    },
+                    'Completed episode based on inferred outcome'
+                  );
+                } else {
+                  await context.repos.episodes.fail(activeEpisode.id, inferred.reasoning);
+                  cleanupLogger.info(
+                    {
+                      episodeId: activeEpisode.id,
+                      outcome: 'failure',
+                      confidence: inferred.confidence,
+                    },
+                    'Failed episode based on inferred outcome'
+                  );
+                }
+              } else {
+                await context.repos.episodes.cancel(
+                  activeEpisode.id,
+                  `Session ended due to ${reason} (outcome uncertain)`
+                );
+                cleanupLogger.debug(
+                  { episodeId: activeEpisode.id, sessionId: session.id },
+                  'Cancelled episode (outcome could not be inferred)'
+                );
+              }
             }
           }
 
-          // Seal any open transcripts for this session
           if (context.services.transcript && context.repos.ideTranscripts) {
             const transcripts = await context.repos.ideTranscripts.list(
               { agentMemorySessionId: session.id, isSealed: false },
@@ -319,7 +398,6 @@ export async function runServer(
             }
           }
 
-          // End the session
           await context.repos.sessions.end(session.id, 'completed');
           cleanupLogger.debug({ sessionId: session.id }, 'Ended session');
         } catch (sessionError) {

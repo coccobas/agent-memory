@@ -46,6 +46,7 @@ import { createClassificationService } from '../../services/classification/index
 import { ReembeddingService } from '../../services/reembedding.service.js';
 // Latent memory service for cache warming
 import { LatentMemoryService } from '../../services/latent-memory/latent-memory.service.js';
+import { HookLearningService } from '../../services/learning/hook-learning.service.js';
 
 const logger = createComponentLogger('services-factory');
 
@@ -373,6 +374,14 @@ export async function createServices(
   );
   logger.debug('Librarian service initialized');
 
+  const hookLearningService = new HookLearningService({
+    enabled: true,
+    enableKnowledgeExtraction: true,
+    enableTriggerParsing: true,
+    enableTaskTracking: true,
+  });
+  logger.debug('Hook learning service initialized');
+
   // LoRA Service - exports guidelines as LoRA training data
   const loraService = createLoraService();
   logger.debug('LoRA service initialized');
@@ -514,11 +523,9 @@ export async function createServices(
     // Incremental extraction services
     triggerOrchestrator,
     incrementalExtractor,
-    // Classification service
     classification: classificationService,
-    // Latent memory service for cache warming
     latentMemory: latentMemoryService,
-    // Re-embedding service factory (call with db to create the service)
+    hookLearning: hookLearningService,
     _createReembeddingService: createReembeddingService,
   };
 }

@@ -67,6 +67,13 @@ interface NotificationContext {
 const recentNotifications: NotificationContext[] = [];
 const MAX_NOTIFICATION_HISTORY = 10;
 
+interface ActiveBlock {
+  userMessage: string;
+  timestamp: number;
+}
+const activeBlocks = new Map<string, ActiveBlock>();
+let messageCounter = 0;
+
 /**
  * MCP Client wrapper for agent-memory
  * Manages connection lifecycle and provides typed tool calls
@@ -486,6 +493,38 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
           const episodeId = mcpClient.getEpisodeId();
           const conversationId = mcpClient.getConversationId();
 
+          const lastBlockEntry = Array.from(activeBlocks.entries()).pop();
+          if (lastBlockEntry) {
+            const [messageId] = lastBlockEntry;
+            const sessionId = (event.properties as { sessionId?: string })?.sessionId;
+            const sessionIdStr = sessionId ? `opencode-${sessionId}` : undefined;
+
+            if (sessionIdStr) {
+              const hasErrors = recentErrors.some((e) => Date.now() - e.timestamp < 30000);
+
+              mcpClient
+                .callTool('memory_capture', {
+                  action: 'block_end',
+                  sessionId: sessionIdStr,
+                  messageId,
+                  assistantMessage: contentStr.slice(0, 2000),
+                  success: !hasErrors,
+                })
+                .catch(() => {});
+
+              mcpClient
+                .callTool('memory_capture', {
+                  action: 'conversation',
+                  sessionId: sessionIdStr,
+                  role: 'assistant',
+                  message: contentStr,
+                })
+                .catch(() => {});
+
+              activeBlocks.delete(messageId);
+            }
+          }
+
           if (episodeId) {
             mcpClient
               .callTool('memory_episode', {
@@ -549,10 +588,34 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
       await ensureProjectId();
       const inp = input as { sessionID?: string };
 
-      // Log user message to episode and conversation
       const episodeId = mcpClient.getEpisodeId();
       const conversationId = mcpClient.getConversationId();
+      const sessionId = inp.sessionID ? `opencode-${inp.sessionID}` : undefined;
+
       if (!text.toLowerCase().startsWith('!am')) {
+        const messageId = `msg-${Date.now()}-${++messageCounter}`;
+        activeBlocks.set(messageId, { userMessage: text, timestamp: Date.now() });
+
+        if (sessionId) {
+          mcpClient
+            .callTool('memory_capture', {
+              action: 'block_start',
+              sessionId,
+              userMessage: text,
+              messageId,
+            })
+            .catch(() => {});
+
+          mcpClient
+            .callTool('memory_capture', {
+              action: 'conversation',
+              sessionId,
+              role: 'user',
+              message: text,
+            })
+            .catch(() => {});
+        }
+
         if (episodeId) {
           mcpClient
             .callTool('memory_episode', {
@@ -560,7 +623,7 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
               id: episodeId,
               message: text.slice(0, 500),
               eventType: 'checkpoint',
-              data: { role: 'user', fullLength: text.length },
+              data: { role: 'user', fullLength: text.length, messageId },
             })
             .catch(() => {});
         }

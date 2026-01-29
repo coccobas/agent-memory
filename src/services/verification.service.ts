@@ -11,7 +11,6 @@ import {
   guidelines,
   guidelineVersions,
   sessions,
-  sessionGuidelineAcknowledgments,
   verificationLog,
   type VerificationActionType,
 } from '../db/schema.js';
@@ -96,34 +95,6 @@ export class VerificationService {
     agentId?: string
   ): VerificationResult {
     return logCompletedAction(sessionId, action, agentId, this.db);
-  }
-
-  /**
-   * Acknowledge critical guidelines for a session.
-   */
-  acknowledgeGuidelines(
-    sessionId: string,
-    guidelineIds?: string[],
-    acknowledgedBy?: string
-  ): { acknowledged: number; guidelineIds: string[] } {
-    return acknowledgeGuidelines(sessionId, guidelineIds, acknowledgedBy, this.db);
-  }
-
-  /**
-   * Get acknowledged guideline IDs for a session.
-   */
-  getAcknowledgedGuidelineIds(sessionId: string): string[] {
-    return getAcknowledgedGuidelineIds(sessionId, this.db);
-  }
-
-  /**
-   * Check if all critical guidelines have been acknowledged for a session.
-   */
-  areAllCriticalGuidelinesAcknowledged(
-    sessionId: string,
-    projectId: string | null
-  ): { acknowledged: boolean; missing: string[] } {
-    return areAllCriticalGuidelinesAcknowledged(sessionId, projectId, this.db);
   }
 }
 
@@ -446,112 +417,6 @@ export function logCompletedAction(
   logVerification(sessionId, 'post_check', action, result, checkedGuidelineIds, agentId, db);
 
   return result;
-}
-
-/**
- * Acknowledge critical guidelines for a session.
- *
- * @param sessionId - The session ID
- * @param guidelineIds - The guideline IDs to acknowledge (or all critical if empty)
- * @param acknowledgedBy - The agent/user who acknowledged
- * @param db - Database client (required)
- * @returns Number of guidelines acknowledged
- */
-export function acknowledgeGuidelines(
-  sessionId: string,
-  guidelineIds: string[] | undefined,
-  acknowledgedBy: string | undefined,
-  db: DbClient
-): { acknowledged: number; guidelineIds: string[] } {
-  // If no specific IDs provided, get all critical guidelines for the session
-  let idsToAcknowledge = guidelineIds;
-  if (!idsToAcknowledge || idsToAcknowledge.length === 0) {
-    const projectId = getProjectIdForSession(sessionId, db);
-    const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
-    idsToAcknowledge = criticalGuidelines.map((g) => g.id);
-  }
-
-  let acknowledged = 0;
-  const acknowledgedIds: string[] = [];
-
-  for (const guidelineId of idsToAcknowledge) {
-    try {
-      db.insert(sessionGuidelineAcknowledgments)
-        .values({
-          id: generateId(),
-          sessionId,
-          guidelineId,
-          acknowledgedBy,
-        })
-        .onConflictDoNothing()
-        .run();
-
-      acknowledged++;
-      acknowledgedIds.push(guidelineId);
-    } catch (error) {
-      logger.warn({ error, guidelineId }, 'Failed to acknowledge guideline');
-    }
-  }
-
-  // Log the acknowledgment
-  logVerification(
-    sessionId,
-    'acknowledge',
-    { type: 'other', description: 'Acknowledged critical guidelines' },
-    {
-      allowed: true,
-      blocked: false,
-      violations: [],
-      warnings: [],
-      requiresConfirmation: false,
-    },
-    acknowledgedIds,
-    acknowledgedBy,
-    db
-  );
-
-  logger.info({ sessionId, acknowledged }, 'Guidelines acknowledged');
-
-  return { acknowledged, guidelineIds: acknowledgedIds };
-}
-
-/**
- * Get acknowledged guideline IDs for a session.
- *
- * @param sessionId - The session ID
- * @param db - Database client (required)
- */
-export function getAcknowledgedGuidelineIds(sessionId: string, db: DbClient): string[] {
-  const acknowledgments = db
-    .select({ guidelineId: sessionGuidelineAcknowledgments.guidelineId })
-    .from(sessionGuidelineAcknowledgments)
-    .where(eq(sessionGuidelineAcknowledgments.sessionId, sessionId))
-    .all();
-
-  return acknowledgments.map((a) => a.guidelineId);
-}
-
-/**
- * Check if all critical guidelines have been acknowledged for a session.
- *
- * @param sessionId - The session ID
- * @param projectId - The project ID
- * @param db - Database client (required)
- */
-export function areAllCriticalGuidelinesAcknowledged(
-  sessionId: string,
-  projectId: string | null,
-  db: DbClient
-): { acknowledged: boolean; missing: string[] } {
-  const criticalGuidelines = getCriticalGuidelinesForScope(projectId, sessionId, db);
-  const acknowledgedIds = new Set(getAcknowledgedGuidelineIds(sessionId, db));
-
-  const missing = criticalGuidelines.filter((g) => !acknowledgedIds.has(g.id)).map((g) => g.name);
-
-  return {
-    acknowledged: missing.length === 0,
-    missing,
-  };
 }
 
 // =============================================================================

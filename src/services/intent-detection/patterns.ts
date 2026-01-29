@@ -59,28 +59,34 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
   // Episode management
   episode_begin: [
     /^(starting|start|begin|beginning)\s+(work\s+on\s+|fixing\s+|implementing\s+|task:?\s+)/i,
-    /^(new\s+)?episode:?\s+/i,
+    /^(start|begin)\s+(an?\s+)?episode:?\s+/i, // "start episode: X", "begin an episode: X"
+    /^(new\s+)?episode:?\s+(?!log|note|update|timeline|history)/i, // "episode: X" but not "episode log/timeline/history"
     /^task:?\s+/i,
     /^working\s+on:?\s+/i,
   ],
   episode_log: [
     /^(log|note|checkpoint):?\s+/i,
     /^(logged|noted):?\s+/i,
-    /^progress:?\s+/i, // Note: "update" without colon handled by update intent
+    /^progress:?\s+/i,
     /^(found|discovered|realized)\s+(that\s+)?/i,
     /^(decided|choosing|picked)\s+(to\s+)?/i,
+    /^episode\s+(log|note|update):?\s+/i,
+    /^add\s+(a\s+)?(log|note|checkpoint)\s+(to\s+)?episode:?\s*/i,
   ],
   episode_complete: [
-    /^(finished|completed|done\s+with)\s+(the\s+)?(episode|task)/i,
-    /^(episode|task)\s+(finished|completed|done)/i,
+    /^(finished|completed|done\s+with|end)\s+(the\s+)?(episode|task)/i,
+    /^(episode|task)\s+(finished|completed|done|ended)/i,
     /^(success|failure|failed):?\s+/i,
     /^(outcome):?\s+/i,
+    /^(complete|finish|end)\s+episode/i,
   ],
   episode_query: [
     /^what\s+happened\s+(during|in)\s+/i,
     /^(show|tell\s+me)\s+what\s+happened/i,
     /^(trace|follow)\s+(the\s+)?(causes?|chain)/i,
     /^(timeline|history)\s+(of|for)\s+/i,
+    /^(show|get|display)?\s*(the\s+)?(episode|session)\s+(timeline|history)/i,
+    /^(episode|session)\s+(timeline|history)\b/i,
   ],
 
   // Experience learning (routes to memory_experience.learn)
@@ -103,8 +109,8 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
 
   // Retrieval operations
   retrieve: [
-    /\?\s*$/i, // Questions ending with ? are retrieval
-    /^(what|how|where|when|why|which)\s+/i, // Question words at start (relaxed - no verb requirement)
+    /\?\s*$/i,
+    /^(what|how|where|when|why|which)\s+/i,
     /^(what|how|where|when|why)\s+(do|does|did|is|are|was|were|should|can|could|would)\s+/i,
     /^(what|anything)\s+about\s+/i,
     /^(find|search|look\s+up|get)\s+/i,
@@ -112,7 +118,7 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
     /^(do\s+we\s+have|is\s+there)\s+(any\s+)?(info|information|knowledge|guidelines?)\s+/i,
     /^(what'?s?\s+)?(the|our)\s+/i,
     /^(recall|retrieve)\s+/i,
-    /\btagged\s+(with|as)\s+/i, // "find entries tagged with X"
+    /\btagged\s+(with|as)\s+/i,
   ],
 
   // Deletion/forgetting
@@ -125,11 +131,13 @@ const INTENT_PATTERNS: Record<Intent, RegExp[]> = {
 
   // Listing
   list: [
+    /^show\s+(me\s+)?everything\s*$/i,
+    /^(show|list|display)\s+everything\s*$/i,
+    /^(display|get)\s+(me\s+)?(all|everything)\s*$/i,
     /^list\s+(all\s+)?(my\s+)?(the\s+)?/i,
     /^show\s+(all\s+)?(my\s+)?(the\s+)?(guidelines?|knowledge|tools?|rules?)/i,
     /^(what|which)\s+(guidelines?|knowledge|tools?|rules?)\s+(do\s+we\s+have|are\s+there)/i,
     /^(get|fetch)\s+(all\s+)?/i,
-    /^show\s+me\s+everything$/i,
   ],
 
   // List episodes specifically
@@ -434,22 +442,31 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'store': {
-      // Extract content after trigger phrases
       const content = text
         .replace(/^remember\s+(that\s+)?/i, '')
         .replace(/^store\s+(this|the|a)?\s*/i, '')
         .replace(/^(guideline|rule|fact):\s*/i, '')
         .trim();
-      params.content = content;
-      params.entryType = detectEntryType(text) ?? 'knowledge';
-      params.category = detectCategory(text) ?? 'fact';
+
+      if (content.length < 3 || /^(that|this|it|something)$/i.test(content)) {
+        params.error = 'content_too_short_or_vague';
+        params.content = content;
+      } else {
+        params.content = content;
+        params.entryType = detectEntryType(text) ?? 'knowledge';
+        params.category = detectCategory(text) ?? 'fact';
+      }
       break;
     }
     case 'retrieve': {
-      const tagMatch = text.match(/\btagged\s+(with|as)\s+["']?([^"'\s]+)["']?/i);
-      if (tagMatch?.[2]) {
-        params.tagFilter = tagMatch[2];
+      // Check for tag filtering first (more specific than general search)
+      const tagMatch = text.match(
+        /\b(find|search|show|list|get)\s+(all\s+)?(entries|items)?\s*tagged\s+(with|as)\s+["']?([^"'\s]+)["']?/i
+      );
+      if (tagMatch?.[5]) {
+        params.tagFilter = tagMatch[5];
         params.query = '';
+        params.useTagFilter = 'true';
         break;
       }
 
@@ -493,12 +510,12 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'episode_begin': {
-      // Extract episode name from "starting task: X" or "working on: X"
       const name = text
         .replace(
           /^(starting|start|begin|beginning)\s+(work\s+on\s+|fixing\s+|implementing\s+|task:?\s+)/i,
           ''
         )
+        .replace(/^(start|begin)\s+(an?\s+)?episode:?\s+/i, '')
         .replace(/^(new\s+)?episode:?\s+/i, '')
         .replace(/^task:?\s+/i, '')
         .replace(/^working\s+on:?\s+/i, '')
@@ -507,14 +524,14 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'episode_log': {
-      // Extract message from "log: X" or "checkpoint: X"
       const message = text
-        .replace(/^(log|note|checkpoint|logged|noted|progress|update):?\s+/i, '')
+        .replace(/^(log|note|checkpoint|logged|noted|progress):?\s+/i, '')
         .replace(/^(found|discovered|realized)\s+(that\s+)?/i, '')
         .replace(/^(decided|choosing|picked)\s+(to\s+)?/i, '')
+        .replace(/^episode\s+(log|note|update):?\s+/i, '')
+        .replace(/^add\s+(a\s+)?(log|note|checkpoint)\s+(to\s+)?episode:?\s*/i, '')
         .trim();
       params.message = message;
-      // Detect event type from trigger words
       if (/^(decided|choosing|picked)/i.test(text)) {
         params.eventType = 'decision';
       } else if (/^(found|discovered|realized)/i.test(text)) {
@@ -523,14 +540,13 @@ function extractParams(text: string, intent: Intent): Record<string, string> {
       break;
     }
     case 'episode_complete': {
-      // Extract outcome from "finished task: X" or "success: X"
       const outcome = text
-        .replace(/^(finished|completed|done\s+with)\s+(the\s+)?(episode|task):?\s*/i, '')
-        .replace(/^(episode|task)\s+(finished|completed|done):?\s*/i, '')
+        .replace(/^(finished|completed|done\s+with|end)\s+(the\s+)?(episode|task):?\s*/i, '')
+        .replace(/^(episode|task)\s+(finished|completed|done|ended):?\s*/i, '')
+        .replace(/^(complete|finish|end)\s+episode:?\s*/i, '')
         .replace(/^(success|failure|failed|outcome):?\s*/i, '')
         .trim();
       params.outcome = outcome;
-      // Detect outcome type
       if (/^(success)/i.test(text)) {
         params.outcomeType = 'success';
       } else if (/^(failure|failed)/i.test(text)) {

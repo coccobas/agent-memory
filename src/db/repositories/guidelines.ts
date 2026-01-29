@@ -110,6 +110,7 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
           content: input.content,
           rationale: input.rationale,
           examples: input.examples,
+          verificationRules: input.verificationRules,
           createdBy: input.createdBy,
           changeReason: 'Initial version',
         };
@@ -313,6 +314,10 @@ export function createGuidelineRepository(deps: DatabaseDeps): IGuidelineReposit
           content: input.content ?? previousVersion?.content ?? '',
           rationale: input.rationale ?? previousVersion?.rationale,
           examples: input.examples ?? previousVersion?.examples,
+          verificationRules:
+            input.verificationRules !== undefined
+              ? input.verificationRules
+              : previousVersion?.verificationRules,
           createdBy: input.updatedBy,
           changeReason: input.changeReason,
           conflictFlag,

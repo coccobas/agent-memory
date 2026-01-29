@@ -96,6 +96,25 @@ describe('Intent Detection Patterns', () => {
         expect(result.intent).toBe('store');
       });
 
+      it('should flag vague content like "that" as error', () => {
+        const result = detectIntent('remember that');
+        expect(result.intent).toBe('store');
+        expect(result.extractedParams.error).toBe('content_too_short_or_vague');
+        expect(result.extractedParams.content).toBe('that');
+      });
+
+      it('should flag single-character content as error', () => {
+        const result = detectIntent('remember x');
+        expect(result.intent).toBe('store');
+        expect(result.extractedParams.error).toBe('content_too_short_or_vague');
+      });
+
+      it('should flag "this" as vague content', () => {
+        const result = detectIntent('store this');
+        expect(result.intent).toBe('store');
+        expect(result.extractedParams.error).toBe('content_too_short_or_vague');
+      });
+
       it('should extract entry type and category', () => {
         const result = detectIntent('remember that we always lint code');
         expect(result.extractedParams.entryType).toBeDefined();
@@ -561,6 +580,198 @@ describe('Intent Detection Patterns', () => {
         const result = detectEpisodeTrigger('Fixing debugging the bug issue error problem crash');
         expect(result.confidence).toBeLessThanOrEqual(0.95);
       });
+    });
+  });
+});
+
+describe('UX friction fixes', () => {
+  it('should detect "show me everything" correctly (list or retrieve acceptable)', () => {
+    const result = detectIntent('show me everything');
+    // Bug was extracting "me everything" - as long as it works, intent doesn't matter
+    expect(['list', 'retrieve']).toContain(result.intent);
+  });
+
+  it('should detect "list everything" as list intent', () => {
+    const result = detectIntent('list everything');
+    expect(result.intent).toBe('list');
+  });
+
+  it('should detect "display everything" as list intent', () => {
+    const result = detectIntent('display everything');
+    expect(result.intent).toBe('list');
+  });
+
+  it('should detect "find entries tagged with X" as retrieve with tag filter', () => {
+    const result = detectIntent('find entries tagged with security');
+    expect(result.intent).toBe('retrieve');
+    expect(result.extractedParams.tagFilter).toBe('security');
+    expect(result.extractedParams.useTagFilter).toBe('true');
+  });
+
+  it('should detect "show items tagged with X" as retrieve with tag filter', () => {
+    const result = detectIntent('show items tagged with testing');
+    expect(result.intent).toBe('retrieve');
+    expect(result.extractedParams.tagFilter).toBe('testing');
+  });
+
+  it('should detect "list tagged with X" as retrieve with tag filter', () => {
+    const result = detectIntent('list tagged with performance');
+    expect(result.intent).toBe('retrieve');
+    expect(result.extractedParams.tagFilter).toBe('performance');
+  });
+});
+
+describe('Episode natural language intents', () => {
+  describe('episode_begin', () => {
+    it('should detect "start episode: X" pattern', () => {
+      const result = detectIntent('start episode: Fix login bug');
+      expect(result.intent).toBe('episode_begin');
+      expect(result.extractedParams.name).toBe('Fix login bug');
+    });
+
+    it('should detect "begin episode: X" pattern', () => {
+      const result = detectIntent('begin episode: Refactor auth');
+      expect(result.intent).toBe('episode_begin');
+      expect(result.extractedParams.name).toBe('Refactor auth');
+    });
+
+    it('should detect "start an episode: X" pattern', () => {
+      const result = detectIntent('start an episode: Add feature');
+      expect(result.intent).toBe('episode_begin');
+      expect(result.extractedParams.name).toBe('Add feature');
+    });
+
+    it('should detect "working on: X" pattern', () => {
+      const result = detectIntent('working on: database migration');
+      expect(result.intent).toBe('episode_begin');
+      expect(result.extractedParams.name).toBe('database migration');
+    });
+
+    it('should detect "task: X" pattern', () => {
+      const result = detectIntent('task: implement caching');
+      expect(result.intent).toBe('episode_begin');
+      expect(result.extractedParams.name).toBe('implement caching');
+    });
+  });
+
+  describe('episode_log', () => {
+    it('should detect "log: X" pattern', () => {
+      const result = detectIntent('log: completed the migration');
+      expect(result.intent).toBe('episode_log');
+      expect(result.extractedParams.message).toBe('completed the migration');
+    });
+
+    it('should detect "checkpoint: X" pattern', () => {
+      const result = detectIntent('checkpoint: tests passing');
+      expect(result.intent).toBe('episode_log');
+      expect(result.extractedParams.message).toBe('tests passing');
+    });
+
+    it('should detect "found that X" pattern', () => {
+      const result = detectIntent('found that the timeout was too short');
+      expect(result.intent).toBe('episode_log');
+      expect(result.extractedParams.eventType).toBe('checkpoint');
+    });
+
+    it('should detect "decided to X" pattern', () => {
+      const result = detectIntent('decided to use Redis for caching');
+      expect(result.intent).toBe('episode_log');
+      expect(result.extractedParams.eventType).toBe('decision');
+    });
+
+    it('should detect "episode log: X" pattern', () => {
+      const result = detectIntent('episode log: implemented the fix');
+      expect(result.intent).toBe('episode_log');
+      expect(result.extractedParams.message).toBe('implemented the fix');
+    });
+
+    it('should detect "add log to episode: X" pattern', () => {
+      const result = detectIntent('add log to episode: completed testing');
+      expect(result.intent).toBe('episode_log');
+      expect(result.extractedParams.message).toBe('completed testing');
+    });
+  });
+
+  describe('episode_complete', () => {
+    it('should detect "end episode" pattern', () => {
+      const result = detectIntent('end episode');
+      expect(result.intent).toBe('episode_complete');
+    });
+
+    it('should detect "complete episode" pattern', () => {
+      const result = detectIntent('complete episode');
+      expect(result.intent).toBe('episode_complete');
+    });
+
+    it('should detect "finish episode" pattern', () => {
+      const result = detectIntent('finish episode');
+      expect(result.intent).toBe('episode_complete');
+    });
+
+    it('should detect "success: X" pattern', () => {
+      const result = detectIntent('success: bug fixed');
+      expect(result.intent).toBe('episode_complete');
+      expect(result.extractedParams.outcomeType).toBe('success');
+    });
+
+    it('should detect "failure: X" pattern', () => {
+      const result = detectIntent('failure: could not reproduce');
+      expect(result.intent).toBe('episode_complete');
+      expect(result.extractedParams.outcomeType).toBe('failure');
+    });
+
+    it('should detect "finished the task" pattern', () => {
+      const result = detectIntent('finished the task: all tests passing');
+      expect(result.intent).toBe('episode_complete');
+    });
+  });
+
+  describe('episode_query', () => {
+    it('should detect "what happened during X" pattern', () => {
+      const result = detectIntent('what happened during the refactor');
+      expect(result.intent).toBe('episode_query');
+      expect(result.extractedParams.ref).toBe('the refactor');
+    });
+
+    it('should detect "show what happened" pattern', () => {
+      const result = detectIntent('show what happened');
+      expect(result.intent).toBe('episode_query');
+    });
+
+    it('should detect "timeline of X" pattern', () => {
+      const result = detectIntent('timeline of the migration');
+      expect(result.intent).toBe('episode_query');
+      expect(result.extractedParams.ref).toBe('the migration');
+    });
+
+    it('should detect "episode timeline" pattern', () => {
+      const result = detectIntent('episode timeline');
+      expect(result.intent).toBe('episode_query');
+    });
+
+    it('should detect "show episode timeline" pattern', () => {
+      const result = detectIntent('show episode timeline');
+      expect(result.intent).toBe('episode_query');
+    });
+
+    it('should detect "episode history" pattern', () => {
+      const result = detectIntent('episode history');
+      expect(result.intent).toBe('episode_query');
+    });
+
+    it('should detect "session timeline" pattern', () => {
+      const result = detectIntent('session timeline');
+      expect(result.intent).toBe('episode_query');
+    });
+
+    it('should detect "show session history" pattern', () => {
+      const result = detectIntent('show session history');
+      expect(result.intent).toBe('episode_query');
+    });
+
+    it('should detect "get the session timeline" pattern', () => {
+      const result = detectIntent('get the session timeline');
+      expect(result.intent).toBe('episode_query');
     });
   });
 });

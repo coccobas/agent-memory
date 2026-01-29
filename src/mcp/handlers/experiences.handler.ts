@@ -311,7 +311,8 @@ const addStepHandler: ContextAwareHandler = async (
   params: Record<string, unknown>
 ) => {
   const id = getRequiredParam(params, 'id', isString);
-  const action = getRequiredParam(params, 'action', isString);
+  // Use 'stepAction' to avoid collision with MCP action selector
+  const stepAction = getRequiredParam(params, 'stepAction', isString);
   const observation = getOptionalParam(params, 'observation', isString);
   const reasoning = getOptionalParam(params, 'reasoning', isString);
   const toolUsed = getOptionalParam(params, 'toolUsed', isString);
@@ -321,7 +322,7 @@ const addStepHandler: ContextAwareHandler = async (
   const agentId = getRequiredParam(params, 'agentId', isString);
 
   const stepInput: TrajectoryStepInput = {
-    action,
+    action: stepAction,
     observation,
     reasoning,
     toolUsed,

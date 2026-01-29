@@ -1,6 +1,7 @@
 {
-  "active_plan": "/Users/coccobas/Development/memory/agent-memory/.sisyphus/plans/ux-fixes.md",
-  "started_at": "2026-01-26T18:49:09.376Z",
-  "session_ids": ["ses_4046d4bdcffeBR7Xe03BtkJqc3"],
-  "plan_name": "ux-fixes"
+  "active_plan": "/Users/coccobas/Development/memory/agent-memory/.sisyphus/plans/tool-outcome-tracking.md",
+  "started_at": "2026-01-29T22:31:54.571Z",
+  "session_ids": ["ses_3f55160a7ffetOT9dphVd23l9L"],
+  "plan_name": "tool-outcome-tracking",
+  "status": "in_progress"
 }

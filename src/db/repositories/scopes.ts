@@ -4,7 +4,7 @@
  * Factory functions that accept DatabaseDeps for dependency injection.
  */
 
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, sql, desc } from 'drizzle-orm';
 import {
   organizations,
   projects,
@@ -470,7 +470,7 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
         query = query.where(and(...conditions)) as typeof query;
       }
 
-      return query.limit(limit).offset(offset).all();
+      return query.orderBy(desc(sessions.startedAt)).limit(limit).offset(offset).all();
     },
 
     async update(id: string, input: UpdateSessionInput): Promise<Session | undefined> {

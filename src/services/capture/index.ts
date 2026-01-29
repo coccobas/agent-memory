@@ -72,7 +72,6 @@ export class CaptureService {
   private rlService?: RLService | null;
   private feedbackService?: FeedbackService | null;
   private episodeService?: EpisodeService | null;
-  private extractionService?: ExtractionService | null;
 
   constructor(deps: CaptureServiceDeps, captureConfig?: CaptureServiceConfig) {
     this.stateManager = deps.stateManager ?? new CaptureStateManager();
@@ -86,7 +85,6 @@ export class CaptureService {
     this.rlService = deps.rlService;
     this.feedbackService = deps.feedbackService;
     this.episodeService = deps.episodeService;
-    this.extractionService = deps.extractionService;
   }
 
   /**
@@ -1072,9 +1070,9 @@ export class CaptureService {
             projectId: captureOptions.projectId,
             sessionId: captureOptions.sessionId,
             episodeId: episode.id,
-            title: `Episode: ${episode.name}`,
-            scenario: episode.description ?? 'Task execution',
-            outcome: episode.outcome ?? 'Completed',
+            title: episode.name,
+            scenario: episode.description ?? 'Completed episode task',
+            outcome: episode.outcome ?? 'Completed successfully',
             content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
             trajectory,
             category: 'episode-completion',
@@ -1098,9 +1096,9 @@ export class CaptureService {
           projectId: captureOptions.projectId,
           sessionId: captureOptions.sessionId,
           episodeId: episode.id,
-          title: `Episode: ${episode.name}`,
-          scenario: episode.description ?? 'Task execution',
-          outcome: episode.outcome ?? 'Completed',
+          title: episode.name,
+          scenario: episode.description ?? 'Completed episode task',
+          outcome: episode.outcome ?? 'Completed successfully',
           content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
           trajectory,
           category: 'episode-completion',
@@ -1117,9 +1115,9 @@ export class CaptureService {
         projectId: captureOptions.projectId,
         sessionId: captureOptions.sessionId,
         episodeId: episode.id,
-        title: `Episode: ${episode.name}`,
-        scenario: episode.description ?? 'Task execution',
-        outcome: episode.outcome ?? 'Completed',
+        title: episode.name,
+        scenario: episode.description ?? 'Completed episode task',
+        outcome: episode.outcome ?? 'Completed successfully',
         content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
         trajectory,
         category: 'episode-completion',

@@ -24,6 +24,9 @@ import type { PaginationOptions } from '../../../db/repositories/base.js';
 // GUIDELINE REPOSITORY
 // =============================================================================
 
+import type { VerificationRules } from './analytics.js';
+export type { VerificationRules };
+
 export interface CreateGuidelineInput {
   scopeType: ScopeType;
   scopeId?: string;
@@ -33,6 +36,7 @@ export interface CreateGuidelineInput {
   content: string;
   rationale?: string;
   examples?: { bad?: string[]; good?: string[] };
+  verificationRules?: VerificationRules;
   createdBy?: string;
 }
 
@@ -44,6 +48,7 @@ export interface UpdateGuidelineInput {
   content?: string;
   rationale?: string;
   examples?: { bad?: string[]; good?: string[] };
+  verificationRules?: VerificationRules | null;
   changeReason?: string;
   updatedBy?: string;
 }

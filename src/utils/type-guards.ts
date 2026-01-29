@@ -169,6 +169,37 @@ export function isExamplesObject(value: unknown): value is { bad?: string[]; goo
 }
 
 /**
+ * Type guard to check if a value is a valid verification rules object
+ */
+export function isVerificationRules(value: unknown): value is {
+  filePatterns?: string[];
+  contentPatterns?: string[];
+  forbiddenActions?: string[];
+  requiredPatterns?: string[];
+} {
+  if (!isObject(value)) return false;
+  const obj = value;
+  if (obj.filePatterns !== undefined && !isArrayOfStrings(obj.filePatterns)) return false;
+  if (obj.contentPatterns !== undefined && !isArrayOfStrings(obj.contentPatterns)) return false;
+  if (obj.forbiddenActions !== undefined && !isArrayOfStrings(obj.forbiddenActions)) return false;
+  if (obj.requiredPatterns !== undefined && !isArrayOfStrings(obj.requiredPatterns)) return false;
+  return true;
+}
+
+/**
+ * Type guard to check if a value is verification rules or null (for clearing)
+ */
+export function isVerificationRulesOrNull(value: unknown): value is {
+  filePatterns?: string[];
+  contentPatterns?: string[];
+  forbiddenActions?: string[];
+  requiredPatterns?: string[];
+} | null {
+  if (value === null) return true;
+  return isVerificationRules(value);
+}
+
+/**
  * Type guard to check if a value is a valid knowledge category
  */
 export function isKnowledgeCategory(

@@ -182,3 +182,10 @@ export * from './ide-transcripts.js';
 // =============================================================================
 
 export * from './error-log.js';
+
+// =============================================================================
+// TOOL OUTCOMES (Event-Level Tool Execution Tracking)
+// =============================================================================
+
+export * from './tool-outcomes.js';
+export * from './session-tool-counter.js';

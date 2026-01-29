@@ -76,12 +76,45 @@ export class UnifiedMemoryService implements IUnifiedMemoryService {
   ): Promise<UnifiedMemoryResponse> {
     const { text, context } = request;
 
-    // Detect intent
-    const detectedIntent = this.intentService.detect(text);
+    const trimmedText = text.trim();
+    if (trimmedText.length === 0) {
+      const errorIntent: IntentDetectionResult = {
+        intent: 'unknown',
+        confidence: 0,
+        rawPatterns: [],
+      };
+      return {
+        action: 'error',
+        status: 'error',
+        message:
+          'Input cannot be empty. Please provide a command like "Remember that..." or "What do we know about..."',
+        request: text,
+        detectedIntent: errorIntent,
+        autoExecuted: false,
+      };
+    }
+
+    if (trimmedText.length === 1) {
+      const errorIntent: IntentDetectionResult = {
+        intent: 'unknown',
+        confidence: 0,
+        rawPatterns: [],
+      };
+      return {
+        action: 'error',
+        status: 'error',
+        message: `Input "${trimmedText}" is too short. Please provide a meaningful command (at least 2 characters).`,
+        request: text,
+        detectedIntent: errorIntent,
+        autoExecuted: false,
+      };
+    }
+
+    const detectedIntent = this.intentService.detect(trimmedText);
 
     logger.debug(
       {
-        text: text.substring(0, 100),
+        text: trimmedText.substring(0, 100),
         intent: detectedIntent.intent,
         confidence: detectedIntent.confidence,
       },

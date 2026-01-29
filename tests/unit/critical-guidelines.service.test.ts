@@ -228,7 +228,6 @@ describe('critical-guidelines.service', () => {
 
       expect(result.count).toBe(1);
       expect(result.guidelines).toHaveLength(1);
-      expect(result.acknowledgmentRequired).toBe(true);
       expect(result.message).toContain('CRITICAL');
       expect(result.message).toContain('1 guideline');
     });
@@ -240,7 +239,6 @@ describe('critical-guidelines.service', () => {
 
       expect(result.count).toBe(0);
       expect(result.guidelines).toHaveLength(0);
-      expect(result.acknowledgmentRequired).toBe(false);
       expect(result.message).toBeNull();
     });
   });

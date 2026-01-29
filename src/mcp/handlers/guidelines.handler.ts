@@ -17,6 +17,8 @@ import {
   isNumber,
   isExamplesObject,
   isScopeType,
+  isVerificationRules,
+  isVerificationRulesOrNull,
 } from '../../utils/type-guards.js';
 import {
   validateTextLength,
@@ -39,6 +41,7 @@ function extractAddParams(
   const content = getRequiredParam(params, 'content', isString);
   const rationale = getOptionalParam(params, 'rationale', isString);
   const examples = getOptionalParam(params, 'examples', isExamplesObject);
+  const verificationRules = getOptionalParam(params, 'verificationRules', isVerificationRules);
   const createdBy = getOptionalParam(params, 'createdBy', isString);
 
   // Validate input sizes
@@ -49,6 +52,9 @@ function extractAddParams(
   }
   if (examples) {
     validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
+  }
+  if (verificationRules) {
+    validateJsonSize(verificationRules, 'verificationRules', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
   }
 
   // Ensure scopeType is provided (required by factory contract)
@@ -65,6 +71,7 @@ function extractAddParams(
     content,
     rationale,
     examples,
+    verificationRules,
     createdBy,
   };
 }
@@ -77,6 +84,11 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateGuidelineIn
   const content = getOptionalParam(params, 'content', isString);
   const rationale = getOptionalParam(params, 'rationale', isString);
   const examples = getOptionalParam(params, 'examples', isExamplesObject);
+  const verificationRules = getOptionalParam(
+    params,
+    'verificationRules',
+    isVerificationRulesOrNull
+  );
   const changeReason = getOptionalParam(params, 'changeReason', isString);
   const updatedBy = getOptionalParam(params, 'updatedBy', isString);
 
@@ -90,6 +102,9 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateGuidelineIn
   if (examples) {
     validateJsonSize(examples, 'examples', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
   }
+  if (verificationRules) {
+    validateJsonSize(verificationRules, 'verificationRules', SIZE_LIMITS.EXAMPLES_MAX_BYTES);
+  }
 
   const input: UpdateGuidelineInput = {};
   if (scopeType !== undefined) input.scopeType = scopeType as ScopeType;
@@ -99,6 +114,7 @@ function extractUpdateParams(params: Record<string, unknown>): UpdateGuidelineIn
   if (content !== undefined) input.content = content;
   if (rationale !== undefined) input.rationale = rationale;
   if (examples !== undefined) input.examples = examples as { bad?: string[]; good?: string[] };
+  if (verificationRules !== undefined) input.verificationRules = verificationRules;
   if (changeReason !== undefined) input.changeReason = changeReason;
   if (updatedBy !== undefined) input.updatedBy = updatedBy;
 

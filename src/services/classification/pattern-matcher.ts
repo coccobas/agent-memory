@@ -46,6 +46,27 @@ interface WeightedPattern {
 // =============================================================================
 
 /**
+ * Guideline blocklist - patterns that indicate non-rules
+ * These redirect to knowledge when matched
+ */
+const GUIDELINE_BLOCKLIST: WeightedPattern[] = [
+  {
+    id: 'guideline_blocklist_question',
+    regex: /^(how|why|what|when|where)\b.*\?/i,
+    type: 'knowledge',
+    baseWeight: 0.8,
+    description: 'Question pattern - not a rule',
+  },
+  {
+    id: 'guideline_blocklist_bug_without_prescription',
+    regex: /^(bug|issue|error|problem|broken|fails|crashing|crash)[\s:]/i,
+    type: 'knowledge',
+    baseWeight: 0.85,
+    description: 'Bug report prefix without prescriptive language',
+  },
+];
+
+/**
  * Guideline patterns - rules, standards, requirements
  */
 const GUIDELINE_PATTERNS: WeightedPattern[] = [
@@ -321,6 +342,7 @@ const TOOL_PATTERNS: WeightedPattern[] = [
 
 // All patterns combined
 const ALL_PATTERNS: WeightedPattern[] = [
+  ...GUIDELINE_BLOCKLIST, // Check blocklist first (negative patterns)
   ...GUIDELINE_PATTERNS,
   ...KNOWLEDGE_PATTERNS,
   ...TOOL_PATTERNS,
