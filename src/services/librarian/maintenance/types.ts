@@ -364,6 +364,23 @@ export interface FeedbackLoopConfig {
 }
 
 /**
+ * Error analysis task configuration
+ *
+ * Analyzes cross-session error patterns and generates recommendations
+ * for corrective knowledge/guidelines.
+ */
+export interface ErrorAnalysisConfig {
+  /** Enable error analysis during maintenance */
+  enabled: boolean;
+  /** Days to look back for errors */
+  lookbackDays: number;
+  /** Minimum sessions an error must appear in to be considered a pattern */
+  minSessionsForPattern: number;
+  /** Maximum errors to analyze per run */
+  maxErrors: number;
+}
+
+/**
  * Health calculation configuration
  */
 export interface HealthConfig {
@@ -449,6 +466,8 @@ export interface MaintenanceConfig {
   relevanceCalibration: RelevanceCalibrationConfig;
   /** Feedback loop execution settings */
   feedbackLoop: FeedbackLoopConfig;
+  /** Error analysis settings */
+  errorAnalysis: ErrorAnalysisConfig;
 }
 
 /**
@@ -582,6 +601,12 @@ export const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
     updateThresholds: true,
     maxImprovementsPerRun: 5,
   },
+  errorAnalysis: {
+    enabled: false,
+    lookbackDays: 7,
+    minSessionsForPattern: 2,
+    maxErrors: 50,
+  },
 };
 
 // =============================================================================
@@ -615,6 +640,7 @@ export interface MaintenanceRequest {
     | 'categoryAccuracy'
     | 'relevanceCalibration'
     | 'feedbackLoop'
+    | 'errorAnalysis'
   >;
   /** Dry run - analyze without making changes */
   dryRun?: boolean;
@@ -900,6 +926,15 @@ export interface FeedbackLoopResult {
   errors?: string[];
 }
 
+export interface ErrorAnalysisResult {
+  executed: boolean;
+  errorsAnalyzed: number;
+  patternsDetected: number;
+  recommendationsCreated: number;
+  durationMs: number;
+  errors?: string[];
+}
+
 /**
  * Unified maintenance result
  */
@@ -944,6 +979,8 @@ export interface MaintenanceResult {
   relevanceCalibration?: RelevanceCalibrationResult;
   /** Feedback loop execution results */
   feedbackLoop?: FeedbackLoopResult;
+  /** Error analysis results */
+  errorAnalysis?: ErrorAnalysisResult;
   /** Overall timing */
   timing: {
     startedAt: string;

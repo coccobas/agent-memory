@@ -33,6 +33,7 @@ import type {
   CategoryAccuracyResult,
   RelevanceCalibrationResult,
   FeedbackLoopResult,
+  ErrorAnalysisResult,
   MemoryHealth,
 } from './types.js';
 import { DEFAULT_MAINTENANCE_CONFIG, computeHealthGrade } from './types.js';
@@ -116,6 +117,7 @@ export class MaintenanceOrchestrator {
       'categoryAccuracy',
       'relevanceCalibration',
       'feedbackLoop',
+      'errorAnalysis',
     ];
     const results: MaintenanceResult = {
       runId,
@@ -343,6 +345,17 @@ export class MaintenanceOrchestrator {
       );
     }
 
+    // Run error analysis if requested and enabled
+    if (tasksToRun.includes('errorAnalysis') && effectiveConfig.errorAnalysis.enabled) {
+      onProgress?.('errorAnalysis', 'running');
+      results.errorAnalysis = await this.runErrorAnalysis(request, effectiveConfig);
+      onProgress?.(
+        'errorAnalysis',
+        results.errorAnalysis.executed ? 'completed' : 'skipped',
+        results.errorAnalysis
+      );
+    }
+
     // Compute health after maintenance
     if (!request.dryRun) {
       results.healthAfter = await this.computeHealth(request.scopeType, request.scopeId);
@@ -373,6 +386,7 @@ export class MaintenanceOrchestrator {
         categoryAccuracy: results.categoryAccuracy?.executed,
         relevanceCalibration: results.relevanceCalibration?.executed,
         feedbackLoop: results.feedbackLoop?.executed,
+        errorAnalysis: results.errorAnalysis?.executed,
       },
       'Maintenance run completed'
     );
@@ -1735,6 +1749,71 @@ export class MaintenanceOrchestrator {
     }
   }
 
+  private async runErrorAnalysis(
+    request: MaintenanceRequest,
+    config: MaintenanceConfig
+  ): Promise<ErrorAnalysisResult> {
+    const startTime = Date.now();
+    const result: ErrorAnalysisResult = {
+      executed: true,
+      errorsAnalyzed: 0,
+      patternsDetected: 0,
+      recommendationsCreated: 0,
+      durationMs: 0,
+    };
+
+    try {
+      const { runErrorAnalysis } = await import('./error-analysis.js');
+      const { getErrorAnalyzerService } = await import('../../learning/error-analyzer.service.js');
+      const { createErrorLogRepository } = await import('../../../db/repositories/error-log.js');
+
+      const errorAnalyzer = getErrorAnalyzerService();
+      const errorLogRepo = createErrorLogRepository({ db: this.deps.db });
+
+      const analysisResult = await runErrorAnalysis(
+        {
+          repos: this.deps.repos,
+          errorAnalyzer,
+          errorLogRepo,
+        },
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          dryRun: request.dryRun,
+          initiatedBy: request.initiatedBy ?? 'maintenance-orchestrator',
+        },
+        config.errorAnalysis
+      );
+
+      result.errorsAnalyzed = analysisResult.errorsAnalyzed;
+      result.patternsDetected = analysisResult.patternsDetected;
+      result.recommendationsCreated = analysisResult.recommendationsCreated;
+
+      if (analysisResult.errors && analysisResult.errors.length > 0) {
+        result.errors = analysisResult.errors;
+      }
+
+      logger.info(
+        {
+          scopeType: request.scopeType,
+          scopeId: request.scopeId,
+          errorsAnalyzed: result.errorsAnalyzed,
+          patternsDetected: result.patternsDetected,
+          recommendationsCreated: result.recommendationsCreated,
+          dryRun: request.dryRun,
+        },
+        'Error analysis completed'
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMsg }, 'Error analysis task failed');
+      result.errors = [errorMsg];
+    }
+
+    result.durationMs = Date.now() - startTime;
+    return result;
+  }
+
   private async computeQualityScore(scopeType: string, scopeId?: string): Promise<number> {
     // Calculate based on confidence scores and validation
     try {
@@ -1817,6 +1896,34 @@ export class MaintenanceOrchestrator {
       messageInsightExtraction: {
         ...this.config.messageInsightExtraction,
         ...overrides.messageInsightExtraction,
+      },
+      messageRelevanceScoring: {
+        ...this.config.messageRelevanceScoring,
+        ...overrides.messageRelevanceScoring,
+      },
+      extractionQuality: {
+        ...this.config.extractionQuality,
+        ...overrides.extractionQuality,
+      },
+      duplicateRefinement: {
+        ...this.config.duplicateRefinement,
+        ...overrides.duplicateRefinement,
+      },
+      categoryAccuracy: {
+        ...this.config.categoryAccuracy,
+        ...overrides.categoryAccuracy,
+      },
+      relevanceCalibration: {
+        ...this.config.relevanceCalibration,
+        ...overrides.relevanceCalibration,
+      },
+      feedbackLoop: {
+        ...this.config.feedbackLoop,
+        ...overrides.feedbackLoop,
+      },
+      errorAnalysis: {
+        ...this.config.errorAnalysis,
+        ...overrides.errorAnalysis,
       },
     };
   }
