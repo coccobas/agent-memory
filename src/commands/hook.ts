@@ -77,11 +77,20 @@ async function initializeHookDatabase(): Promise<void> {
   const { getHookLearningService } = await import('../services/learning/index.js');
   const { createExperienceRepository } = await import('../db/repositories/experiences.js');
   const { createKnowledgeRepository } = await import('../db/repositories/knowledge.js');
+  const { createToolOutcomesRepository } = await import('../db/repositories/tool-outcomes.js');
+  const { createErrorLogRepository } = await import('../db/repositories/error-log.js');
   const { getSqlite } = await import('../core/container.js');
   const learningService = getHookLearningService();
   const experienceRepo = createExperienceRepository({ db, sqlite: getSqlite() });
   const knowledgeRepo = createKnowledgeRepository({ db, sqlite: getSqlite() });
-  learningService.setDependencies({ experienceRepo, knowledgeRepo });
+  const toolOutcomesRepo = createToolOutcomesRepository({ db, sqlite: getSqlite() });
+  const errorLogRepo = createErrorLogRepository({ db, sqlite: getSqlite() });
+  learningService.setDependencies({
+    experienceRepo,
+    knowledgeRepo,
+    toolOutcomesRepo,
+    errorLogRepo,
+  });
 }
 
 /**
@@ -127,6 +136,8 @@ async function initializeFullContext(): Promise<void> {
     learningService.setDependencies({
       experienceRepo: ctx.repos.experiences,
       knowledgeRepo: ctx.repos.knowledge,
+      toolOutcomesRepo: ctx.repos.toolOutcomes,
+      errorLogRepo: ctx.repos.errorLog,
       librarianService: ctx.services?.librarian,
     });
   }
@@ -176,6 +187,8 @@ async function initializeHookContext(): Promise<void> {
     learningService.setDependencies({
       experienceRepo: ctx.repos.experiences,
       knowledgeRepo: ctx.repos.knowledge,
+      toolOutcomesRepo: ctx.repos.toolOutcomes,
+      errorLogRepo: ctx.repos.errorLog,
       librarianService: ctx.services?.librarian,
     });
   }
@@ -283,6 +296,9 @@ export async function runHookCommand(argv: string[]): Promise<void> {
       await initializeHookContext();
     } else if (sub === 'session-end' || sub === 'sessionend') {
       await initializeFullContext();
+    } else if (sub === 'posttooluse' || sub === 'post-tool-use') {
+      // PostToolUse needs hook context for outcome recording and periodic analysis
+      await initializeHookContext();
     } else if (fullContext) {
       // --full-context enables conversation capture but adds latency
       await initializeHookContext();

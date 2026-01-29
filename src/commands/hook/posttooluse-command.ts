@@ -16,7 +16,15 @@ import type { ClaudeHookInput, HookCommandResult } from './types.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 import { getHookAnalyticsService } from '../../services/analytics/index.js';
 import { getHookLearningService } from '../../services/learning/index.js';
+import { getOutcomeAnalyzerService } from '../../services/learning/outcome-analyzer.service.js';
 import { isContextRegistered, getContext } from '../../core/container.js';
+import {
+  classifyOutcome,
+  redactSensitive,
+  summarizeInput,
+  summarizeOutput,
+  hashInput,
+} from './outcome-utils.js';
 
 const logger = createComponentLogger('posttooluse');
 
@@ -322,7 +330,78 @@ export async function runPostToolUseCommand(params: {
     }
   }
 
-  // Step 3: Detect immediate error patterns and store in error_log
+  // Step 3: Record tool outcome (success/failure/partial) to tool_outcomes table
+  if (sessionId && toolName) {
+    try {
+      const ctx = getContext();
+      const toolOutcomesRepo = ctx.repos.toolOutcomes;
+
+      if (toolOutcomesRepo) {
+        const outputSummaryStr = outputSummary || '';
+        const outcomeType = classifyOutcome(success, outputSummaryStr);
+
+        const lastOutcome = await toolOutcomesRepo.getLastOutcomeForSession(sessionId);
+        const precedingToolId = lastOutcome?.id ?? null;
+
+        let durationMs: number | null = null;
+        if (lastOutcome) {
+          const lastTime = new Date(lastOutcome.createdAt).getTime();
+          const now = Date.now();
+          if (now - lastTime < 300000) {
+            durationMs = now - lastTime;
+          }
+        }
+
+        const outcomeId = await toolOutcomesRepo.record({
+          sessionId,
+          projectId: projectId || undefined,
+          toolName,
+          outcome: outcomeType,
+          outcomeType: success ? undefined : errorType,
+          message: success ? redactSensitive(outputSummaryStr) : outputSummaryStr,
+          toolInputHash: hashInput(toolInput ?? ''),
+          inputSummary: redactSensitive(summarizeInput(toolInput, 200)),
+          outputSummary: redactSensitive(summarizeOutput(toolResponse, 500)),
+          durationMs: durationMs || undefined,
+          precedingToolId: precedingToolId || undefined,
+        });
+
+        logger.debug(
+          {
+            sessionId,
+            toolName,
+            outcome: outcomeType,
+            outcomeId,
+          },
+          'Tool outcome recorded'
+        );
+
+        await toolOutcomesRepo.incrementAndGetToolCount(sessionId);
+
+        // Step 3.5: Trigger periodic analysis if threshold reached (fire-and-forget)
+        triggerPeriodicAnalysis(sessionId, toolOutcomesRepo).catch((err) => {
+          logger.debug(
+            {
+              error: err instanceof Error ? err.message : String(err),
+              sessionId,
+            },
+            'Periodic analysis trigger failed (non-blocking)'
+          );
+        });
+      }
+    } catch (error) {
+      logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          sessionId,
+          toolName,
+        },
+        'Failed to record tool outcome (non-blocking)'
+      );
+    }
+  }
+
+  // Step 4: Detect immediate error patterns and store in error_log (dual-write for failures)
   if (config.detectErrorPatterns && !success && errorType) {
     logger.debug(
       {
@@ -456,6 +535,72 @@ export async function runPostToolUseCommand(params: {
   await captureAssistantToolUse(sessionId, toolName, toolInput, toolResponse);
 
   return { exitCode: 0, stdout, stderr };
+}
+
+async function triggerPeriodicAnalysis(
+  sessionId: string,
+  toolOutcomesRepo: ReturnType<typeof getContext>['repos']['toolOutcomes'] | undefined
+): Promise<void> {
+  if (!isContextRegistered() || !toolOutcomesRepo) return;
+
+  const ctx = getContext();
+  const config = ctx.config;
+
+  if (!config.periodicAnalysis.enabled) return;
+
+  // Step 1: SNAPSHOT - Read atomically
+  const snapshot = await toolOutcomesRepo.getCounterSnapshot(sessionId);
+  if (!snapshot) return;
+
+  // Step 2: CHECK - Threshold not met?
+  const countSinceAnalysis = snapshot.toolCount - snapshot.lastAnalysisCount;
+  if (countSinceAnalysis < config.periodicAnalysis.toolCountThreshold) return;
+
+  // Step 3: CAS - Try to claim analysis rights
+  const claimed = await toolOutcomesRepo.tryClaimAnalysis(
+    sessionId,
+    snapshot.lastAnalysisCount,
+    snapshot.toolCount
+  );
+
+  if (!claimed) {
+    // Another process claimed it - exit silently
+    return;
+  }
+
+  // Step 4: QUERY - Get outcomes to analyze (by count, not timestamp)
+  const recentOutcomes = await toolOutcomesRepo.getRecentOutcomes(sessionId, countSinceAnalysis);
+
+  // Step 5: Check minimum success count
+  const successCount = recentOutcomes.filter((o) => o.outcome === 'success').length;
+  if (successCount < config.periodicAnalysis.minSuccessCount) {
+    // Not enough successes - exit
+    return;
+  }
+
+  // Step 6: Trigger analysis (FIRE-AND-FORGET - see lines 2132-2199 in plan)
+  const outcomeAnalyzer = getOutcomeAnalyzerService();
+  const hookLearning = getHookLearningService();
+
+  outcomeAnalyzer
+    .analyzeOutcomes(recentOutcomes)
+    .then(async (analysis) => {
+      // Store patterns via HookLearningService
+      for (const pattern of analysis.patterns) {
+        if (pattern.confidence >= 0.7) {
+          await hookLearning.storePatternKnowledge(pattern, sessionId);
+        }
+      }
+    })
+    .catch((err: unknown) => {
+      logger.warn(
+        {
+          error: err instanceof Error ? err.message : String(err),
+          sessionId,
+        },
+        'Periodic analysis failed'
+      );
+    });
 }
 
 async function captureAssistantToolUse(

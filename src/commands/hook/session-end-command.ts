@@ -13,6 +13,7 @@ import { getContext } from '../../core/container.js';
 import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 import { getInjectionTrackerService } from '../../services/injection-tracking/index.js';
+import { getHookLearningService } from '../../services/learning/index.js';
 
 const logger = createComponentLogger('session-end');
 
@@ -453,6 +454,15 @@ export async function runSessionEndCommand(params: {
         }
       }
     }
+
+    getHookLearningService()
+      .onSessionEnd(sessionId)
+      .catch((err) => {
+        logger.warn(
+          { sessionId, error: err instanceof Error ? err.message : String(err) },
+          'Session-end outcome analysis failed (non-fatal)'
+        );
+      });
 
     getInjectionTrackerService().clearSession(sessionId);
     logger.debug({ sessionId }, 'Cleared injection tracker for ended session');

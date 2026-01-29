@@ -20,12 +20,20 @@ import type {
 } from '../../core/interfaces/repositories.js';
 import type { ITaskRepository } from '../../db/repositories/tasks.js';
 import type { ErrorLogRepository } from '../../db/repositories/error-log.js';
+import type { ToolOutcomesRepository } from '../../db/repositories/tool-outcomes.js';
 import type { LibrarianService } from '../librarian/index.js';
 import type { ScopeType, TaskType } from '../../db/schema.js';
 import { getExtractionTriggersService } from '../capture/triggers.js';
 import type { DetectedTrigger, TriggerType } from '../capture/triggers.js';
 import { getErrorAnalyzerService } from './error-analyzer.service.js';
 import type { ErrorPattern } from './error-analyzer.service.js';
+import { getOutcomeAnalyzerService } from './outcome-analyzer.service.js';
+import {
+  redactSensitive,
+  summarizeInput,
+  summarizeOutput,
+  hashInput,
+} from '../../commands/hook/outcome-utils.js';
 
 const logger = createComponentLogger('hook-learning');
 
@@ -306,6 +314,7 @@ export class HookLearningService {
   private toolRepo: IToolRepository | null = null;
   private taskRepo: ITaskRepository | null = null;
   private errorLogRepo: ErrorLogRepository | null = null;
+  private toolOutcomesRepo: ToolOutcomesRepository | null = null;
   private librarianService: LibrarianService | null = null;
   private triggersService = getExtractionTriggersService();
 
@@ -332,6 +341,7 @@ export class HookLearningService {
     toolRepo?: IToolRepository;
     taskRepo?: ITaskRepository;
     errorLogRepo?: ErrorLogRepository;
+    toolOutcomesRepo?: ToolOutcomesRepository;
     librarianService?: LibrarianService;
   }): void {
     if (deps.experienceRepo) {
@@ -351,6 +361,9 @@ export class HookLearningService {
     }
     if (deps.errorLogRepo) {
       this.errorLogRepo = deps.errorLogRepo;
+    }
+    if (deps.toolOutcomesRepo) {
+      this.toolOutcomesRepo = deps.toolOutcomesRepo;
     }
     if (deps.librarianService) {
       this.librarianService = deps.librarianService;
@@ -1736,6 +1749,20 @@ export class HookLearningService {
    * @returns Promise that resolves when analysis completes or times out
    */
   async onSessionEnd(sessionId: string): Promise<void> {
+    // Try comprehensive outcome analysis first (all patterns)
+    try {
+      await this.performComprehensiveOutcomeAnalysis(sessionId);
+    } catch (error) {
+      logger.debug(
+        {
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Comprehensive outcome analysis failed, falling back to error analysis'
+      );
+    }
+
+    // Fall back to error-only analysis if enabled
     if (!this.errorAnalysisConfig.enabled) {
       logger.debug({ sessionId }, 'Error analysis disabled, skipping session-end analysis');
       return;
@@ -1790,6 +1817,57 @@ export class HookLearningService {
         'Session-end error analysis failed (non-blocking)'
       );
     }
+  }
+
+  /**
+   * Perform comprehensive analysis on all tool outcomes (not just errors)
+   */
+  private async performComprehensiveOutcomeAnalysis(sessionId: string): Promise<void> {
+    if (!this.toolOutcomesRepo) {
+      logger.debug(
+        { sessionId },
+        'Tool outcomes repository not available, skipping comprehensive analysis'
+      );
+      return;
+    }
+
+    const outcomes = await this.toolOutcomesRepo.getBySession(sessionId);
+
+    if (outcomes.length < 5) {
+      logger.debug(
+        { sessionId, outcomeCount: outcomes.length },
+        'Not enough outcomes for comprehensive analysis (minimum 5)'
+      );
+      return;
+    }
+
+    const outcomeAnalyzer = getOutcomeAnalyzerService();
+    const analysis = await outcomeAnalyzer.analyzeAllPatterns(outcomes);
+
+    const allPatterns = [
+      ...analysis.bestPractices,
+      ...analysis.recoveryPatterns,
+      ...analysis.toolSequences,
+      ...analysis.efficiencyPatterns,
+    ];
+
+    if (allPatterns.length === 0) {
+      logger.debug({ sessionId }, 'No patterns detected in comprehensive analysis');
+      return;
+    }
+
+    logger.debug(
+      { sessionId, patternCount: allPatterns.length, successRate: analysis.successRate },
+      'Comprehensive outcome analysis complete'
+    );
+
+    for (const pattern of allPatterns) {
+      if (pattern.confidence >= 0.7) {
+        await this.storePatternKnowledge(pattern, sessionId);
+      }
+    }
+
+    await this.toolOutcomesRepo.deleteCounter(sessionId);
   }
 
   /**
@@ -1867,6 +1945,105 @@ export class HookLearningService {
         );
       }
     }
+  }
+
+  /**
+   * Store detected pattern as knowledge entry
+   * Used by periodic analysis to persist high-confidence patterns
+   */
+  async storePatternKnowledge(
+    pattern: {
+      patternType: string;
+      confidence: number;
+      tools: string[];
+      suggestedKnowledge: {
+        title: string;
+        content: string;
+      };
+    },
+    sessionId: string
+  ): Promise<void> {
+    if (!this.knowledgeRepo) {
+      throw new Error('Knowledge repository not available');
+    }
+
+    await this.knowledgeRepo.create({
+      scopeType: 'session',
+      scopeId: sessionId,
+      title: pattern.suggestedKnowledge.title,
+      category: 'fact',
+      content: `${pattern.suggestedKnowledge.content}\n\nTools: ${pattern.tools.join(', ')}`,
+      source: `pattern:${pattern.patternType}`,
+      confidence: pattern.confidence,
+      createdBy: 'outcome-analyzer',
+    });
+  }
+
+  // ===========================================================================
+  // TOOL OUTCOME RECORDING (for MCP clients like OpenCode)
+  // ===========================================================================
+
+  /**
+   * Record a tool outcome to the tool_outcomes table.
+   * Used by MCP clients (OpenCode) that can't execute hook scripts.
+   * Performs same field derivation as PostToolUse hook.
+   */
+  async recordToolOutcome(params: {
+    sessionId: string;
+    toolName: string;
+    outcome: 'success' | 'failure' | 'partial';
+    inputSummary?: string;
+    outputSummary?: string;
+    projectId?: string;
+  }): Promise<{ id: string }> {
+    if (!this.toolOutcomesRepo) {
+      throw new Error('Tool outcomes repository not available');
+    }
+
+    const lastOutcome = await this.toolOutcomesRepo.getLastOutcomeForSession(params.sessionId);
+    const precedingToolId = lastOutcome?.id ?? undefined;
+
+    let durationMs: number | undefined;
+    if (lastOutcome) {
+      const lastTime = new Date(lastOutcome.createdAt).getTime();
+      const now = Date.now();
+      if (now - lastTime < 300000) {
+        durationMs = now - lastTime;
+      }
+    }
+
+    const safeInputSummary = params.inputSummary
+      ? redactSensitive(summarizeInput(params.inputSummary, 200))
+      : undefined;
+    const safeOutputSummary = params.outputSummary
+      ? redactSensitive(summarizeOutput(params.outputSummary, 500))
+      : undefined;
+
+    const id = await this.toolOutcomesRepo.record({
+      sessionId: params.sessionId,
+      projectId: params.projectId || undefined,
+      toolName: params.toolName,
+      outcome: params.outcome,
+      inputSummary: safeInputSummary,
+      outputSummary: safeOutputSummary,
+      toolInputHash: hashInput(params.inputSummary ?? ''),
+      precedingToolId,
+      durationMs,
+    });
+
+    await this.toolOutcomesRepo.incrementAndGetToolCount(params.sessionId);
+
+    logger.debug(
+      {
+        sessionId: params.sessionId,
+        toolName: params.toolName,
+        outcome: params.outcome,
+        outcomeId: id,
+      },
+      'Tool outcome recorded via MCP'
+    );
+
+    return { id };
   }
 
   // ===========================================================================

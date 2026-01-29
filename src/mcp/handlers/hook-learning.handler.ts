@@ -24,6 +24,10 @@ function isRole(value: unknown): value is 'user' | 'assistant' {
   return isString(value) && ['user', 'assistant'].includes(value);
 }
 
+function isOutcomeType(value: unknown): value is 'success' | 'failure' | 'partial' {
+  return isString(value) && ['success', 'failure', 'partial'].includes(value);
+}
+
 export const hookLearningHandlers = {
   async block_start(context: AppContext, params: Record<string, unknown>) {
     const service = context.services.hookLearning;
@@ -189,6 +193,75 @@ export const hookLearningHandlers = {
       knowledgeExtractionAvailable: service?.isKnowledgeAvailable() ?? false,
       config: service?.getConfig(),
     });
+  },
+
+  async tool_outcome(context: AppContext, params: Record<string, unknown>) {
+    const service = context.services.hookLearning;
+    if (!service?.isAvailable()) {
+      return formatTimestamps({
+        success: false,
+        message: 'Hook learning service not available',
+      });
+    }
+
+    const sessionId = getRequiredParam(params, 'sessionId', isString);
+    const toolName = getRequiredParam(params, 'toolName', isString);
+    const outcome = getRequiredParam(params, 'outcome', isOutcomeType);
+    const inputSummary = getOptionalParam(params, 'inputSummary', isString);
+    const outputSummary = getOptionalParam(params, 'outputSummary', isString);
+    const projectId = getOptionalParam(params, 'projectId', isString);
+
+    try {
+      const result = await service.recordToolOutcome({
+        sessionId,
+        projectId,
+        toolName,
+        outcome,
+        inputSummary,
+        outputSummary,
+      });
+
+      return formatTimestamps({
+        success: true,
+        action: 'tool_outcome',
+        ...result,
+      });
+    } catch (error) {
+      logger.error({ error: formatError(error), sessionId }, 'Tool outcome recording failed');
+      return formatTimestamps({
+        success: false,
+        action: 'tool_outcome',
+        error: formatError(error),
+      });
+    }
+  },
+
+  async session_end_analysis(context: AppContext, params: Record<string, unknown>) {
+    const service = context.services.hookLearning;
+    if (!service?.isAvailable()) {
+      return formatTimestamps({
+        success: false,
+        message: 'Hook learning service not available',
+      });
+    }
+
+    const sessionId = getRequiredParam(params, 'sessionId', isString);
+
+    try {
+      await service.onSessionEnd(sessionId);
+      return formatTimestamps({
+        success: true,
+        action: 'session_end_analysis',
+        sessionId,
+      });
+    } catch (error) {
+      logger.error({ error: formatError(error), sessionId }, 'Session-end analysis failed');
+      return formatTimestamps({
+        success: false,
+        action: 'session_end_analysis',
+        error: formatError(error),
+      });
+    }
   },
 };
 

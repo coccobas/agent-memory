@@ -465,6 +465,13 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
             })
             .catch(() => {});
 
+          mcpClient
+            .callTool('memory_capture', {
+              action: 'session_end_analysis',
+              sessionId: `opencode-${sessionId}`,
+            })
+            .catch(() => {});
+
           // F7: Auto-consolidate stale entries (non-blocking)
           mcpClient
             .callTool('memory_consolidate', {
@@ -1317,9 +1324,23 @@ Other:
         }
       }
 
-      // Record tool usage for analytics (non-blocking)
       const toolInput = getToolInput(input, output);
       const toolResponse = getToolResponse(output);
+
+      mcpClient
+        .callTool('memory_capture', {
+          action: 'tool_outcome',
+          sessionId: `opencode-${inp.sessionID}`,
+          toolName: toolName,
+          outcome: hasError ? 'failure' : 'success',
+          inputSummary:
+            typeof toolInput === 'object' ? JSON.stringify(toolInput).slice(0, 500) : undefined,
+          outputSummary:
+            typeof toolResponse === 'object'
+              ? JSON.stringify(toolResponse).slice(0, 500)
+              : undefined,
+        })
+        .catch(() => {});
 
       mcpClient
         .callTool('memory_analytics', {

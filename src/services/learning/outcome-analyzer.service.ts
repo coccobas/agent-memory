@@ -15,6 +15,8 @@ import { createComponentLogger } from '../../utils/logger.js';
 import { config } from '../../config/index.js';
 import type { ToolOutcome } from '../../db/schema/tool-outcomes.js';
 
+export type { ToolOutcome } from '../../db/schema/tool-outcomes.js';
+
 const logger = createComponentLogger('learning:outcome-analyzer');
 
 // ============ NEW TYPES FOR SUCCESS PATTERN ANALYSIS ============

@@ -208,6 +208,8 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       guidelineRepo: repos.guidelines,
       toolRepo: repos.tools,
       taskRepo: repos.tasks,
+      toolOutcomesRepo: repos.toolOutcomes,
+      errorLogRepo: repos.errorLog,
       librarianService: services.librarian,
     });
     logger.debug('Hook learning service dependencies wired');

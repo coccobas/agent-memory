@@ -460,6 +460,12 @@ export interface Config {
     maxTokens: number;
     temperature: number;
   };
+  periodicAnalysis: {
+    enabled: boolean;
+    toolCountThreshold: number;
+    minSuccessCount: number;
+    analysisTimeoutMs: number;
+  };
 }
 
 // =============================================================================
