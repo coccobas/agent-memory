@@ -25,3 +25,6 @@ export * from './librarian-checkpoints.js';
 
 // Maintenance jobs (background task persistence)
 export * from './maintenance-jobs.js';
+
+// Error log (error tracking and deduplication)
+export * from './error-log.js';
