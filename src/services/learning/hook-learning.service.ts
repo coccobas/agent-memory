@@ -15,9 +15,17 @@ import { createComponentLogger } from '../../utils/logger.js';
 import type {
   IExperienceRepository,
   IKnowledgeRepository,
+  IGuidelineRepository,
+  IToolRepository,
 } from '../../core/interfaces/repositories.js';
+import type { ITaskRepository } from '../../db/repositories/tasks.js';
+import type { ErrorLogRepository } from '../../db/repositories/error-log.js';
 import type { LibrarianService } from '../librarian/index.js';
-import type { ScopeType } from '../../db/schema.js';
+import type { ScopeType, TaskType } from '../../db/schema.js';
+import { getExtractionTriggersService } from '../capture/triggers.js';
+import type { DetectedTrigger, TriggerType } from '../capture/triggers.js';
+import { getErrorAnalyzerService } from './error-analyzer.service.js';
+import type { ErrorPattern } from './error-analyzer.service.js';
 
 const logger = createComponentLogger('hook-learning');
 
@@ -153,6 +161,26 @@ const KNOWLEDGE_PATTERNS: Array<{
 ];
 
 /**
+ * Configuration for error analysis on session end
+ */
+export interface ErrorAnalysisConfig {
+  /** Enable error analysis on session end (default: true) */
+  enabled: boolean;
+
+  /** Minimum unique error types to trigger analysis (default: 2) */
+  minUniqueErrorTypes: number;
+
+  /** Timeout for LLM analysis in ms (default: 30000) */
+  analysisTimeoutMs: number;
+
+  /** Minimum confidence for storing corrective entries (default: 0.7) */
+  confidenceThreshold: number;
+
+  /** Maximum errors to analyze per session (default: 50) */
+  maxErrorsToAnalyze: number;
+}
+
+/**
  * Configuration for HookLearningService
  */
 export interface HookLearningConfig {
@@ -188,7 +216,27 @@ export interface HookLearningConfig {
 
   /** Minimum output length for knowledge extraction (default: 50) */
   minOutputLengthForKnowledge: number;
+
+  /** Enable conversation trigger parsing (default: true) */
+  enableTriggerParsing: boolean;
+
+  /** Minimum confidence for auto-storing from triggers (default: 0.8) */
+  triggerConfidenceThreshold: number;
+
+  /** Minimum message length for trigger parsing (default: 20) */
+  minMessageLengthForTriggers: number;
+
+  /** Enable task tracking at block boundaries (default: true) */
+  enableTaskTracking: boolean;
 }
+
+const DEFAULT_ERROR_ANALYSIS_CONFIG: ErrorAnalysisConfig = {
+  enabled: true,
+  minUniqueErrorTypes: 2,
+  analysisTimeoutMs: 30000,
+  confidenceThreshold: 0.7,
+  maxErrorsToAnalyze: 50,
+};
 
 const DEFAULT_CONFIG: HookLearningConfig = {
   enabled: true,
@@ -202,6 +250,10 @@ const DEFAULT_CONFIG: HookLearningConfig = {
   knowledgeConfidenceThreshold: 0.7,
   knowledgeExtractionTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebFetch'],
   minOutputLengthForKnowledge: 50,
+  enableTriggerParsing: true,
+  triggerConfidenceThreshold: 0.8,
+  minMessageLengthForTriggers: 20,
+  enableTaskTracking: true,
 };
 
 /**
@@ -239,21 +291,35 @@ interface ErrorTracker {
  * Captures experiences from Claude Code hook events and triggers
  * Librarian analysis for pattern detection and learning.
  */
+interface ActiveBlock {
+  taskId: string;
+  userMessage: string;
+  startTime: string;
+}
+
 export class HookLearningService {
   private config: HookLearningConfig;
+  private errorAnalysisConfig: ErrorAnalysisConfig;
   private experienceRepo: IExperienceRepository | null = null;
   private knowledgeRepo: IKnowledgeRepository | null = null;
+  private guidelineRepo: IGuidelineRepository | null = null;
+  private toolRepo: IToolRepository | null = null;
+  private taskRepo: ITaskRepository | null = null;
+  private errorLogRepo: ErrorLogRepository | null = null;
   private librarianService: LibrarianService | null = null;
+  private triggersService = getExtractionTriggersService();
 
   // Session-scoped trackers
-  private toolFailures = new Map<string, Map<string, ToolFailureTracker>>(); // sessionId -> toolName -> tracker
-  private errorTrackers = new Map<string, ErrorTracker>(); // sessionId -> tracker
-  private experienceCount = new Map<string, number>(); // sessionId -> count
-  private knowledgeCount = new Map<string, number>(); // sessionId -> count
-  private createdKnowledgeTitles = new Map<string, Set<string>>(); // sessionId -> set of titles (dedup)
+  private toolFailures = new Map<string, Map<string, ToolFailureTracker>>();
+  private errorTrackers = new Map<string, ErrorTracker>();
+  private experienceCount = new Map<string, number>();
+  private knowledgeCount = new Map<string, number>();
+  private createdKnowledgeTitles = new Map<string, Set<string>>();
+  private activeBlocks = new Map<string, ActiveBlock>();
 
   constructor(config?: Partial<HookLearningConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.errorAnalysisConfig = { ...DEFAULT_ERROR_ANALYSIS_CONFIG };
   }
 
   /**
@@ -262,6 +328,10 @@ export class HookLearningService {
   setDependencies(deps: {
     experienceRepo?: IExperienceRepository;
     knowledgeRepo?: IKnowledgeRepository;
+    guidelineRepo?: IGuidelineRepository;
+    toolRepo?: IToolRepository;
+    taskRepo?: ITaskRepository;
+    errorLogRepo?: ErrorLogRepository;
     librarianService?: LibrarianService;
   }): void {
     if (deps.experienceRepo) {
@@ -269,6 +339,18 @@ export class HookLearningService {
     }
     if (deps.knowledgeRepo) {
       this.knowledgeRepo = deps.knowledgeRepo;
+    }
+    if (deps.guidelineRepo) {
+      this.guidelineRepo = deps.guidelineRepo;
+    }
+    if (deps.toolRepo) {
+      this.toolRepo = deps.toolRepo;
+    }
+    if (deps.taskRepo) {
+      this.taskRepo = deps.taskRepo;
+    }
+    if (deps.errorLogRepo) {
+      this.errorLogRepo = deps.errorLogRepo;
     }
     if (deps.librarianService) {
       this.librarianService = deps.librarianService;
@@ -970,10 +1052,555 @@ export class HookLearningService {
   }
 
   /**
-   * Get knowledge statistics for a session
+   * Generate corrective knowledge or guideline entry from error pattern
    */
-  getKnowledgeStats(sessionId: string): { knowledgeCount: number } {
-    return { knowledgeCount: this.knowledgeCount.get(sessionId) ?? 0 };
+  private generateCorrectiveEntry(pattern: ErrorPattern): {
+    type: 'knowledge' | 'guideline';
+    title?: string;
+    name?: string;
+    content: string;
+    category: string;
+  } {
+    const { type, title, content } = pattern.suggestedCorrection;
+
+    if (type === 'guideline') {
+      return {
+        type: 'guideline',
+        name: title || 'Error correction guideline',
+        content,
+        category: 'error-correction',
+      };
+    }
+
+    return {
+      type: 'knowledge',
+      title: title || 'Error correction knowledge',
+      content,
+      category: 'error-correction',
+    };
+  }
+
+  // ===========================================================================
+  // CONVERSATION TRIGGER PARSING
+  // ===========================================================================
+
+  /**
+   * Parse conversation message for triggers and auto-create memory entries
+   */
+  async onConversationMessage(event: {
+    sessionId: string;
+    projectId?: string;
+    role: 'user' | 'assistant';
+    message: string;
+  }): Promise<{
+    entriesCreated: number;
+    guidelines: string[];
+    knowledge: string[];
+    experiences: string[];
+    tools: string[];
+  }> {
+    if (!this.config.enableTriggerParsing) {
+      return { entriesCreated: 0, guidelines: [], knowledge: [], experiences: [], tools: [] };
+    }
+
+    const { sessionId, message } = event;
+
+    if (!message || message.length < this.config.minMessageLengthForTriggers) {
+      return { entriesCreated: 0, guidelines: [], knowledge: [], experiences: [], tools: [] };
+    }
+
+    const triggerResult = this.triggersService.detect(message);
+
+    if (!triggerResult.shouldExtract) {
+      logger.debug(
+        { sessionId, triggerCount: triggerResult.triggers.length },
+        'No triggers worth extracting'
+      );
+      return { entriesCreated: 0, guidelines: [], knowledge: [], experiences: [], tools: [] };
+    }
+
+    const created = {
+      guidelines: [] as string[],
+      knowledge: [] as string[],
+      experiences: [] as string[],
+      tools: [] as string[],
+    };
+
+    for (const trigger of triggerResult.triggers) {
+      if (trigger.confidence < this.config.triggerConfidenceThreshold) {
+        continue;
+      }
+
+      try {
+        const entryId = await this.createEntryFromTrigger(event, trigger, message);
+        if (entryId) {
+          const entryType = this.mapTriggerToEntryType(trigger.type);
+          if (entryType === 'guideline') created.guidelines.push(entryId);
+          else if (entryType === 'knowledge') created.knowledge.push(entryId);
+          else if (entryType === 'experience') created.experiences.push(entryId);
+          else if (entryType === 'tool') created.tools.push(entryId);
+        }
+      } catch (error) {
+        logger.warn(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            triggerType: trigger.type,
+          },
+          'Failed to create entry from trigger (non-fatal)'
+        );
+      }
+    }
+
+    const total =
+      created.guidelines.length +
+      created.knowledge.length +
+      created.experiences.length +
+      created.tools.length;
+
+    if (total > 0) {
+      logger.info(
+        {
+          sessionId,
+          total,
+          guidelines: created.guidelines.length,
+          knowledge: created.knowledge.length,
+          experiences: created.experiences.length,
+          tools: created.tools.length,
+        },
+        'Created entries from conversation triggers'
+      );
+    }
+
+    return { entriesCreated: total, ...created };
+  }
+
+  private mapTriggerToEntryType(
+    triggerType: TriggerType
+  ): 'guideline' | 'knowledge' | 'experience' | 'tool' {
+    switch (triggerType) {
+      case 'rule':
+      case 'preference':
+        return 'guideline';
+      case 'decision':
+      case 'enthusiasm':
+      case 'correction':
+        return 'knowledge';
+      case 'recovery':
+      case 'error_recovery':
+      case 'problem_solved':
+      case 'workaround_found':
+      case 'lesson_learned':
+        return 'experience';
+      case 'command':
+        return 'tool';
+      default:
+        return 'knowledge';
+    }
+  }
+
+  private async createEntryFromTrigger(
+    event: { sessionId: string; projectId?: string; role: 'user' | 'assistant' },
+    trigger: DetectedTrigger,
+    fullMessage: string
+  ): Promise<string | null> {
+    const entryType = this.mapTriggerToEntryType(trigger.type);
+    const scopeType = event.projectId ? 'project' : 'session';
+    const scopeId = event.projectId ?? event.sessionId;
+
+    const context = this.extractContextAroundTrigger(fullMessage, trigger);
+
+    switch (entryType) {
+      case 'guideline': {
+        if (!this.guidelineRepo) return null;
+
+        const guideline = await this.guidelineRepo.create({
+          scopeType,
+          scopeId,
+          name: this.generateGuidelineName(context),
+          content: context,
+          category: trigger.type,
+          priority: Math.round(trigger.priorityBoost / 10),
+          createdBy: 'hook-learning',
+          rationale: `Auto-captured from ${event.role} message via ${trigger.type} trigger`,
+        });
+        return guideline.id;
+      }
+
+      case 'knowledge': {
+        if (!this.knowledgeRepo) return null;
+
+        const knowledge = await this.knowledgeRepo.create({
+          scopeType,
+          scopeId,
+          title: this.generateKnowledgeTitle(trigger.type, context),
+          content: context,
+          category: trigger.type === 'decision' ? 'decision' : 'context',
+          source: `conversation:${event.role}`,
+          confidence: trigger.confidence,
+          createdBy: 'hook-learning',
+        });
+        return knowledge.id;
+      }
+
+      case 'experience': {
+        if (!this.experienceRepo) return null;
+
+        const experience = await this.experienceRepo.create({
+          scopeType,
+          scopeId,
+          title: this.generateExperienceTitle(trigger.type, context),
+          level: 'case',
+          category: trigger.type,
+          content: context,
+          scenario: `Learned from ${event.role} message`,
+          outcome: trigger.matchedText,
+          confidence: trigger.confidence,
+          source: 'observation',
+          createdBy: 'hook-learning',
+        });
+        return experience.id;
+      }
+
+      case 'tool': {
+        if (!this.toolRepo) return null;
+
+        const commandMatch = this.extractCommand(context);
+        if (!commandMatch) return null;
+
+        const tool = await this.toolRepo.create({
+          scopeType,
+          scopeId,
+          name: this.generateToolName(commandMatch),
+          category: 'cli',
+          description: `Auto-captured from ${event.role} message`,
+          parameters: { command: commandMatch },
+          createdBy: 'hook-learning',
+        });
+        return tool.id;
+      }
+    }
+  }
+
+  private extractContextAroundTrigger(message: string, trigger: DetectedTrigger): string {
+    const contextRadius = 200;
+    const start = Math.max(0, trigger.spanStart - contextRadius);
+    const end = Math.min(message.length, trigger.spanEnd + contextRadius);
+
+    let context = message.slice(start, end).trim();
+
+    if (start > 0) context = '...' + context;
+    if (end < message.length) context = context + '...';
+
+    return context;
+  }
+
+  private generateGuidelineName(content: string): string {
+    const firstSentence = content.split(/[.!?]/)[0] ?? content;
+    const words = firstSentence.trim().split(/\s+/).slice(0, 8);
+    return words
+      .join('-')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '');
+  }
+
+  private generateKnowledgeTitle(triggerType: string, content: string): string {
+    const firstLine = content.split('\n')[0] ?? content;
+    const preview = firstLine.slice(0, 80).trim();
+    return `${triggerType}: ${preview}${firstLine.length > 80 ? '...' : ''}`;
+  }
+
+  private generateExperienceTitle(triggerType: string, content: string): string {
+    const firstLine = content.split('\n')[0] ?? content;
+    const preview = firstLine.slice(0, 60).trim();
+    return `${triggerType}: ${preview}${firstLine.length > 60 ? '...' : ''}`;
+  }
+
+  private generateToolName(command: string): string {
+    const parts = command.trim().split(/\s+/);
+    const baseName = parts.slice(0, 3).join('-');
+    return baseName.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  }
+
+  private extractCommand(context: string): string | null {
+    const codeBlockMatch = context.match(/```(?:bash|sh|shell)?\n([^`]+)```/);
+    if (codeBlockMatch) {
+      return codeBlockMatch[1]?.trim() ?? null;
+    }
+
+    const inlineMatch = context.match(/`([^`]+)`/);
+    if (inlineMatch) {
+      const cmd = inlineMatch[1]?.trim();
+      if (cmd && (cmd.startsWith('$') || cmd.includes(' '))) {
+        return cmd.replace(/^\$\s*/, '');
+      }
+    }
+
+    const shellMatch = context.match(/\$\s+([^\n]+)/);
+    if (shellMatch) {
+      return shellMatch[1]?.trim() ?? null;
+    }
+
+    return null;
+  }
+
+  // ===========================================================================
+  // EPISODE EVENT CAPTURE
+  // ===========================================================================
+
+  async onEpisodeEvent(event: {
+    sessionId: string;
+    projectId?: string;
+    episodeId: string;
+    eventType: 'started' | 'checkpoint' | 'decision' | 'error' | 'completed';
+    message: string;
+    data?: Record<string, unknown>;
+  }): Promise<{
+    captured: boolean;
+    entryId?: string;
+    entryType?: 'experience' | 'knowledge';
+  }> {
+    const { sessionId, projectId, episodeId, eventType, message, data } = event;
+
+    if (eventType === 'error' || eventType === 'started') {
+      return { captured: false };
+    }
+
+    const scopeType = projectId ? 'project' : 'session';
+    const scopeId = projectId ?? sessionId;
+
+    try {
+      if (eventType === 'decision') {
+        if (!this.knowledgeRepo) {
+          return { captured: false };
+        }
+
+        const knowledge = await this.knowledgeRepo.create({
+          scopeType,
+          scopeId,
+          title: `Episode decision: ${message.slice(0, 60)}`,
+          content: message,
+          category: 'decision',
+          source: `episode:${episodeId}`,
+          confidence: 0.8,
+          createdBy: 'hook-learning',
+        });
+
+        logger.info(
+          { sessionId, episodeId, knowledgeId: knowledge.id },
+          'Captured decision from episode event'
+        );
+        return { captured: true, entryId: knowledge.id, entryType: 'knowledge' };
+      }
+
+      if (eventType === 'checkpoint' || eventType === 'completed') {
+        if (!this.experienceRepo) {
+          return { captured: false };
+        }
+
+        if (message.length < 30) {
+          return { captured: false };
+        }
+
+        const title =
+          eventType === 'completed'
+            ? `Episode completed: ${message.slice(0, 50)}`
+            : `Episode checkpoint: ${message.slice(0, 50)}`;
+
+        const experience = await this.experienceRepo.create({
+          scopeType,
+          scopeId,
+          title,
+          level: 'case',
+          category: eventType,
+          content: message,
+          scenario: `Episode event: ${eventType}`,
+          outcome: data?.outcome ? String(data.outcome) : 'Event recorded',
+          confidence: eventType === 'completed' ? 0.85 : 0.7,
+          source: 'observation',
+          createdBy: 'hook-learning',
+          steps: [
+            {
+              action: eventType,
+              observation: message,
+              success: eventType === 'completed',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        });
+
+        // Increment session experience counter
+        const count = (this.experienceCount.get(sessionId) ?? 0) + 1;
+        this.experienceCount.set(sessionId, count);
+
+        logger.info(
+          { sessionId, episodeId, experienceId: experience.id },
+          `Captured ${eventType} from episode event`
+        );
+        return { captured: true, entryId: experience.id, entryType: 'experience' };
+      }
+
+      return { captured: false };
+    } catch (error) {
+      logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          episodeId,
+          eventType,
+        },
+        'Failed to capture episode event (non-fatal)'
+      );
+      return { captured: false };
+    }
+  }
+
+  // ===========================================================================
+  // TASK TRACKING AT BLOCK BOUNDARIES
+  // ===========================================================================
+
+  async onBlockStart(event: {
+    sessionId: string;
+    userMessage: string;
+    messageId: string;
+  }): Promise<{
+    taskCreated: boolean;
+    taskId?: string;
+  }> {
+    if (!this.config.enableTaskTracking || !this.taskRepo) {
+      return { taskCreated: false };
+    }
+
+    const { sessionId, userMessage, messageId } = event;
+
+    const triggers = this.triggersService.detect(userMessage);
+
+    if (!this.shouldCreateTask(triggers.triggers, userMessage)) {
+      return { taskCreated: false };
+    }
+
+    try {
+      const taskType = this.inferTaskType(triggers.triggers, userMessage);
+      const task = await this.taskRepo.create({
+        scopeType: 'session',
+        scopeId: sessionId,
+        title: this.inferTaskTitle(userMessage),
+        description: userMessage.slice(0, 500),
+        taskType,
+        taskDomain: 'agent',
+        status: 'in_progress',
+        createdBy: 'hook-learning',
+        metadata: { messageId, triggerTypes: triggers.triggers.map((t) => t.type) },
+      });
+
+      this.activeBlocks.set(messageId, {
+        taskId: task.id,
+        userMessage,
+        startTime: new Date().toISOString(),
+      });
+
+      logger.info({ sessionId, taskId: task.id, messageId }, 'Created task at block start');
+      return { taskCreated: true, taskId: task.id };
+    } catch (error) {
+      logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          sessionId,
+          messageId,
+        },
+        'Failed to create task at block start (non-fatal)'
+      );
+      return { taskCreated: false };
+    }
+  }
+
+  async onBlockEnd(event: {
+    sessionId: string;
+    messageId: string;
+    assistantMessage: string;
+    success: boolean;
+  }): Promise<{
+    taskUpdated: boolean;
+    taskId?: string;
+    entriesCreated: number;
+  }> {
+    if (!this.config.enableTaskTracking || !this.taskRepo) {
+      return { taskUpdated: false, entriesCreated: 0 };
+    }
+
+    const block = this.activeBlocks.get(event.messageId);
+    if (!block) {
+      return { taskUpdated: false, entriesCreated: 0 };
+    }
+
+    try {
+      await this.taskRepo.update(block.taskId, {
+        status: event.success ? 'done' : 'blocked',
+        resolution: event.assistantMessage.slice(0, 200),
+        resolvedAt: new Date().toISOString(),
+      });
+
+      const triggers = this.triggersService.detect(event.assistantMessage);
+      let entriesCreated = 0;
+
+      if (triggers.hasHighConfidenceTriggers) {
+        const result = await this.onConversationMessage({
+          sessionId: event.sessionId,
+          role: 'assistant',
+          message: event.assistantMessage,
+        });
+        entriesCreated = result.entriesCreated;
+      }
+
+      this.activeBlocks.delete(event.messageId);
+
+      logger.info(
+        { sessionId: event.sessionId, taskId: block.taskId, entriesCreated },
+        'Updated task at block end'
+      );
+
+      return { taskUpdated: true, taskId: block.taskId, entriesCreated };
+    } catch (error) {
+      logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          taskId: block.taskId,
+        },
+        'Failed to update task at block end (non-fatal)'
+      );
+      this.activeBlocks.delete(event.messageId);
+      return { taskUpdated: false, entriesCreated: 0 };
+    }
+  }
+
+  private shouldCreateTask(triggers: DetectedTrigger[], message: string): boolean {
+    const workPatterns = [
+      /\b(implement|add|create|build|fix|refactor|update)\s+/i,
+      /\b(write|generate|make)\s+(a|the|some)?\s*(test|function|class|component)/i,
+      /\b(debug|investigate|find|locate)\s+/i,
+      /\bcan you\s+(help|make|create|fix|update)/i,
+    ];
+
+    if (workPatterns.some((p) => p.test(message))) {
+      return true;
+    }
+
+    const workTriggers = ['decision', 'rule', 'command'];
+    return triggers.some((t) => workTriggers.includes(t.type));
+  }
+
+  private inferTaskType(triggers: DetectedTrigger[], message: string): TaskType {
+    if (/\b(bug|fix|error|broken)\b/i.test(message)) return 'bug';
+    if (/\b(feature|implement|add)\b/i.test(message)) return 'feature';
+    if (/\b(improve|optimize|refactor)\b/i.test(message)) return 'improvement';
+    if (/\b(research|investigate|explore)\b/i.test(message)) return 'research';
+    if (triggers.some((t) => t.type === 'decision')) return 'feature';
+    return 'other';
+  }
+
+  private inferTaskTitle(message: string): string {
+    const firstLine = message.split('\n')[0] ?? message;
+    const cleaned = firstLine.replace(/^(can you|please|could you)\s+/i, '').trim();
+    const words = cleaned.split(/\s+/).slice(0, 10);
+    return words.join(' ').slice(0, 200);
   }
 
   // ===========================================================================
@@ -1087,6 +1714,158 @@ export class HookLearningService {
         'Manual Librarian analysis failed'
       );
       return { triggered: false };
+    }
+  }
+
+  // ===========================================================================
+  // SESSION-END ERROR ANALYSIS
+  // ===========================================================================
+
+  /**
+   * Trigger LLM error analysis when a session ends
+   *
+   * Fire-and-forget pattern: doesn't block session termination.
+   * Analyzes errors in the session and generates corrective knowledge entries.
+   *
+   * Only analyzes if:
+   * - Error analysis is enabled
+   * - Session has 2+ unique error types
+   * - ErrorLogRepository is available
+   *
+   * @param sessionId - Session ID to analyze
+   * @returns Promise that resolves when analysis completes or times out
+   */
+  async onSessionEnd(sessionId: string): Promise<void> {
+    if (!this.errorAnalysisConfig.enabled) {
+      logger.debug({ sessionId }, 'Error analysis disabled, skipping session-end analysis');
+      return;
+    }
+
+    if (!this.errorLogRepo) {
+      logger.debug({ sessionId }, 'Error log repository not available, skipping analysis');
+      return;
+    }
+
+    try {
+      // Query errors for this session
+      const errors = await this.errorLogRepo.getBySession(sessionId);
+
+      if (errors.length === 0) {
+        logger.debug({ sessionId }, 'No errors in session, skipping analysis');
+        return;
+      }
+
+      // Count unique error types
+      const uniqueErrorTypes = new Set(errors.map((e) => e.errorType)).size;
+
+      if (uniqueErrorTypes < this.errorAnalysisConfig.minUniqueErrorTypes) {
+        logger.debug(
+          { sessionId, uniqueErrorTypes, threshold: this.errorAnalysisConfig.minUniqueErrorTypes },
+          'Not enough unique error types for analysis'
+        );
+        return;
+      }
+
+      logger.debug(
+        { sessionId, errorCount: errors.length, uniqueErrorTypes },
+        'Starting session-end error analysis'
+      );
+
+      const analysisPromise = this.performErrorAnalysis(sessionId);
+      const timeoutPromise = new Promise<void>((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Analysis timeout')),
+          this.errorAnalysisConfig.analysisTimeoutMs
+        )
+      );
+
+      await Promise.race([analysisPromise, timeoutPromise]);
+    } catch (error) {
+      // Log but don't throw - fire-and-forget pattern
+      logger.warn(
+        {
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Session-end error analysis failed (non-blocking)'
+      );
+    }
+  }
+
+  /**
+   * Perform LLM analysis on session errors
+   */
+  private async performErrorAnalysis(sessionId: string): Promise<void> {
+    const errorAnalyzer = getErrorAnalyzerService();
+
+    const result = await errorAnalyzer.analyzeSessionErrors(sessionId);
+
+    if (!result.patterns || result.patterns.length === 0) {
+      logger.debug({ sessionId }, 'No error patterns detected');
+      return;
+    }
+
+    await this.storeCorrectiveEntries(result.patterns, sessionId);
+  }
+
+  /**
+   * Store corrective knowledge/guideline entries from error patterns
+   */
+  private async storeCorrectiveEntries(patterns: ErrorPattern[], sessionId: string): Promise<void> {
+    for (const pattern of patterns) {
+      if (pattern.confidence < this.errorAnalysisConfig.confidenceThreshold) {
+        logger.debug(
+          { pattern: pattern.patternType, confidence: pattern.confidence },
+          'Pattern below confidence threshold, skipping'
+        );
+        continue;
+      }
+
+      try {
+        const entry = this.generateCorrectiveEntry(pattern);
+
+        if (entry.type === 'knowledge' && this.knowledgeRepo) {
+          await this.knowledgeRepo.create({
+            scopeType: 'session',
+            scopeId: sessionId,
+            title: entry.title || 'Error correction knowledge',
+            content: entry.content,
+            category: 'context',
+            source: 'error-analysis',
+            confidence: pattern.confidence,
+            createdBy: 'error-analyzer',
+          });
+
+          logger.debug(
+            { sessionId, title: entry.title, patternType: pattern.patternType },
+            'Created corrective knowledge entry'
+          );
+        } else if (entry.type === 'guideline' && this.guidelineRepo) {
+          await this.guidelineRepo.create({
+            scopeType: 'session',
+            scopeId: sessionId,
+            name: entry.name || 'Error correction guideline',
+            content: entry.content,
+            category: 'error-correction',
+            priority: Math.round(pattern.confidence * 10),
+            createdBy: 'error-analyzer',
+          });
+
+          logger.debug(
+            { sessionId, name: entry.name, patternType: pattern.patternType },
+            'Created corrective guideline entry'
+          );
+        }
+      } catch (error) {
+        logger.warn(
+          {
+            sessionId,
+            patternType: pattern.patternType,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to store corrective entry (non-fatal)'
+        );
+      }
     }
   }
 
