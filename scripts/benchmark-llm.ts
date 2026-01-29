@@ -84,7 +84,7 @@ const DEFAULT_MODELS = [
   'gpt-oss-120b',
   'zai-org/glm-4.7-flash',
   'glm-4.7-reap-50',
-  'openai/gpt-oss-20b',
+  'unsloth/gps-oss-20b',
   'qwen3-32b',
   'qwen/qwen3-30b-a3b-2507',
   'qwen/qwen3-1.7b',
