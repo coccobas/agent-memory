@@ -71,6 +71,10 @@ export const episodes = pgTable(
     tags: jsonb('tags').$type<string[]>(),
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 
+    // Quality metrics
+    qualityScore: integer('quality_score'),
+    qualityFactors: jsonb('quality_factors').$type<Record<string, number>>(),
+
     // Lifecycle
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     createdBy: text('created_by'),

@@ -196,6 +196,9 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
         if (input.conversationId !== undefined) updates.conversationId = input.conversationId;
         if (input.tags !== undefined) updates.tags = JSON.stringify(input.tags);
         if (input.metadata !== undefined) updates.metadata = JSON.stringify(input.metadata);
+        if (input.qualityScore !== undefined) updates.qualityScore = input.qualityScore;
+        if (input.qualityFactors !== undefined)
+          updates.qualityFactors = JSON.stringify(input.qualityFactors);
 
         if (Object.keys(updates).length > 0) {
           db.update(episodes).set(updates).where(eq(episodes.id, id)).run();

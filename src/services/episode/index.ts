@@ -19,6 +19,7 @@ import type {
   AddEpisodeEventInput,
   EpisodeWithEvents,
   LinkedEntity,
+  EpisodeQualityFactors,
 } from '../../core/interfaces/repositories.js';
 import type { PaginationOptions } from '../../db/repositories/base.js';
 import type { Episode, EpisodeEvent, EpisodeOutcomeType, ScopeType } from '../../db/schema.js';
@@ -33,6 +34,48 @@ import { runMessageRelevanceScoring } from '../librarian/maintenance/message-rel
 const logger = createComponentLogger('episode-service');
 
 const LATE_MESSAGE_BUFFER_MS = 5000;
+
+function calculateQualityScore(
+  events: Array<{ data?: string | null }>,
+  messagesLinked: number,
+  messagesScored: number,
+  linkedExperiences: number,
+  nameWasEnriched: boolean
+): { score: number; factors: EpisodeQualityFactors } {
+  const hasEvents = events.length > 0 ? 0.25 : 0;
+
+  let hasSemanticEvents = 0;
+  for (const event of events) {
+    if (event.data) {
+      const parsed = safeParseJson(event.data);
+      if (parsed?.semanticSummary) {
+        hasSemanticEvents = 0.25;
+        break;
+      }
+    }
+  }
+
+  const nameEnriched = nameWasEnriched ? 0.15 : 0;
+  const hasMessages = messagesLinked > 0 ? 0.15 : 0;
+  const hasScored = messagesScored > 0 ? 0.1 : 0;
+  const hasExperiences = linkedExperiences > 0 ? 0.1 : 0;
+
+  const score = Math.round(
+    (hasEvents + hasSemanticEvents + nameEnriched + hasMessages + hasScored + hasExperiences) * 100
+  );
+
+  return {
+    score,
+    factors: {
+      hasEvents,
+      hasSemanticEvents,
+      nameEnriched,
+      messagesLinked: hasMessages,
+      messagesScored: hasScored,
+      hasExperiences,
+    },
+  };
+}
 
 /**
  * Safely parse JSON, returning undefined on parse errors instead of throwing.
@@ -289,6 +332,7 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
         options?.conversationId
       );
 
+      let messagesScored = 0;
       try {
         if (messagesLinked > 0 && db && extractionService) {
           logger.debug(
@@ -318,6 +362,7 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
           );
 
           if (scoringResult.executed && scoringResult.messagesScored > 0) {
+            messagesScored = scoringResult.messagesScored;
             logger.debug(
               {
                 episodeId: episode.id,
@@ -336,6 +381,41 @@ export function createEpisodeService(deps: EpisodeServiceDeps) {
             error: error instanceof Error ? error.message : String(error),
           },
           'Failed to score message relevance (non-fatal)'
+        );
+      }
+
+      try {
+        const linkedEntities = await episodeRepo.getLinkedEntities(episode.id);
+        const experienceCount = linkedEntities.filter((e) => e.entryType === 'experience').length;
+        const nameWasEnriched =
+          episode.metadata &&
+          typeof episode.metadata === 'object' &&
+          (episode.metadata as Record<string, unknown>).nameEnriched === true;
+
+        const { score, factors } = calculateQualityScore(
+          episode.events ?? [],
+          messagesLinked,
+          messagesScored,
+          experienceCount,
+          !!nameWasEnriched
+        );
+
+        await episodeRepo.update(episode.id, {
+          qualityScore: score,
+          qualityFactors: factors,
+        });
+
+        logger.debug(
+          { episodeId: episode.id, qualityScore: score, factors },
+          'Episode quality score calculated'
+        );
+      } catch (error) {
+        logger.warn(
+          {
+            episodeId: episode.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to calculate quality score (non-fatal)'
         );
       }
 

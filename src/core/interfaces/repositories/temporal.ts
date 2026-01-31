@@ -33,6 +33,16 @@ export interface CreateEpisodeInput {
   createdBy?: string;
 }
 
+/** Quality factors for episode scoring */
+export interface EpisodeQualityFactors {
+  hasEvents: number;
+  hasSemanticEvents: number;
+  nameEnriched: number;
+  messagesLinked: number;
+  messagesScored: number;
+  hasExperiences: number;
+}
+
 /** Input for updating an episode */
 export interface UpdateEpisodeInput {
   name?: string;
@@ -40,6 +50,8 @@ export interface UpdateEpisodeInput {
   conversationId?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  qualityScore?: number;
+  qualityFactors?: EpisodeQualityFactors;
 }
 
 /** Filter for listing episodes */

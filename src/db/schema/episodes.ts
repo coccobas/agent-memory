@@ -72,6 +72,10 @@ export const episodes = sqliteTable(
     tags: text('tags'), // JSON array
     metadata: text('metadata'), // JSON
 
+    // Quality metrics
+    qualityScore: integer('quality_score'),
+    qualityFactors: text('quality_factors'), // JSON
+
     // Lifecycle
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
