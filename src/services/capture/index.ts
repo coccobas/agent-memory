@@ -343,6 +343,49 @@ export class CaptureService {
     }
   }
 
+  private buildScenarioFromTrajectory(trajectory: TrajectoryStep[], fallback?: string): string {
+    if (trajectory.length === 0) {
+      return fallback ?? 'Completed episode task';
+    }
+    const firstSteps = trajectory.slice(0, 3);
+    const stepDescriptions = firstSteps
+      .map((step) => step.action || step.toolUsed || 'action')
+      .filter(Boolean);
+    if (stepDescriptions.length === 0) {
+      return fallback ?? 'Completed episode task';
+    }
+    return `Started with: ${stepDescriptions.join(' → ')}`;
+  }
+
+  private buildOutcomeString(
+    outcome: string | null | undefined,
+    outcomeType: string | null | undefined
+  ): string {
+    if (!outcome) {
+      switch (outcomeType) {
+        case 'success':
+          return 'Completed successfully';
+        case 'partial':
+          return 'Partially completed';
+        case 'failure':
+          return 'Failed to complete';
+        case 'abandoned':
+          return 'Abandoned';
+        default:
+          return 'Completed';
+      }
+    }
+    const prefix =
+      outcomeType === 'success'
+        ? 'Success: '
+        : outcomeType === 'failure'
+          ? 'Failed: '
+          : outcomeType === 'partial'
+            ? 'Partial: '
+            : '';
+    return `${prefix}${outcome}`;
+  }
+
   // =============================================================================
   // TURN HANDLING
   // =============================================================================
@@ -1071,8 +1114,8 @@ export class CaptureService {
             sessionId: captureOptions.sessionId,
             episodeId: episode.id,
             title: episode.name,
-            scenario: episode.description ?? 'Completed episode task',
-            outcome: episode.outcome ?? 'Completed successfully',
+            scenario: episode.description ?? this.buildScenarioFromTrajectory(trajectory),
+            outcome: this.buildOutcomeString(episode.outcome, episode.outcomeType),
             content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
             trajectory,
             category: 'episode-completion',
@@ -1097,8 +1140,8 @@ export class CaptureService {
           sessionId: captureOptions.sessionId,
           episodeId: episode.id,
           title: episode.name,
-          scenario: episode.description ?? 'Completed episode task',
-          outcome: episode.outcome ?? 'Completed successfully',
+          scenario: episode.description ?? this.buildScenarioFromTrajectory(trajectory),
+          outcome: this.buildOutcomeString(episode.outcome, episode.outcomeType),
           content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
           trajectory,
           category: 'episode-completion',
@@ -1116,8 +1159,8 @@ export class CaptureService {
         sessionId: captureOptions.sessionId,
         episodeId: episode.id,
         title: episode.name,
-        scenario: episode.description ?? 'Completed episode task',
-        outcome: episode.outcome ?? 'Completed successfully',
+        scenario: episode.description ?? this.buildScenarioFromTrajectory(trajectory),
+        outcome: this.buildOutcomeString(episode.outcome, episode.outcomeType),
         content: trajectory.map((t) => `${t.action}: ${t.observation ?? ''}`).join('\n'),
         trajectory,
         category: 'episode-completion',
