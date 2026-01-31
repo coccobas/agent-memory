@@ -268,12 +268,14 @@ export function createIDETranscriptRepository(deps: DatabaseDeps): IIDETranscrip
       const { episodeId, transcriptId, startTime, endTime } = params;
 
       // Normalize timestamps using proper Date parsing to handle timezone offsets and milliseconds
+      // Keep 'T' separator to match stored transcript message format (ISO 8601)
       const normalizeTimestamp = (ts: string): string => {
         const date = new Date(ts);
         if (isNaN(date.getTime())) {
           throw new Error(`Invalid timestamp: ${ts}`);
         }
-        return date.toISOString().replace('T', ' ').slice(0, 19);
+        // Use ISO format with 'T' to match stored transcript timestamps
+        return date.toISOString().slice(0, 19);
       };
       const normalizedStart = normalizeTimestamp(startTime);
       const normalizedEnd = normalizeTimestamp(endTime);

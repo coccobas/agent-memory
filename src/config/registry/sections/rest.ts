@@ -19,8 +19,8 @@ export const restSection: ConfigSectionMeta = {
     },
     host: {
       envKey: 'AGENT_MEMORY_REST_HOST',
-      defaultValue: '127.0.0.1',
-      description: 'REST API server host.',
+      defaultValue: '0.0.0.0',
+      description: 'REST API server host. Use 0.0.0.0 to allow network access.',
       schema: z.string(),
     },
     port: {

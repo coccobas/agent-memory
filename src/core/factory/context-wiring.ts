@@ -361,6 +361,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
                   detectedAt: boundary.timestamp.toISOString(),
                   windowBeforeSize: boundary.windowBefore.length,
                   windowAfterSize: boundary.windowAfter.length,
+                  nameSource: 'auto',
                 },
               });
 
@@ -522,6 +523,7 @@ export async function wireContext(input: WireContextInput): Promise<AppContext> 
       vector: services.vector,
       latentMemory: services.latentMemory,
       semanticEdgeInference: semanticEdgeInferenceService,
+      extraction: services.extraction,
     });
     logger.debug('Librarian maintenance orchestrator initialized');
 

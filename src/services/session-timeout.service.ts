@@ -2,14 +2,15 @@
  * Session Timeout Service
  *
  * Tracks session activity and automatically ends inactive sessions.
- * Uses in-memory tracking to avoid schema changes.
+ * Uses hybrid in-memory + DB-based tracking for resilience across restarts.
  *
  * Features:
- * - Records activity on any session operation
- * - Periodic check for stale sessions
+ * - Records activity on any session operation (in-memory + persisted to metadata)
+ * - Periodic check for stale sessions using DB fallback
  * - Configurable inactivity timeout
  * - Graceful shutdown support
  * - **Triggers capture pipeline before ending sessions**
+ * - **DB-based staleness check catches orphaned sessions after server restart**
  */
 
 import type { Config } from '../config/index.js';
@@ -105,8 +106,83 @@ export class SessionTimeoutService implements ISessionTimeoutService {
       }
     }
 
-    this.activityMap.set(sessionId, Date.now());
+    const now = Date.now();
+    this.activityMap.set(sessionId, now);
+
+    // Persist to DB metadata for resilience across restarts (debounced)
+    this.persistActivityToDb(sessionId, now);
+
     logger.debug({ sessionId }, 'Recorded session activity');
+  }
+
+  private persistActivityDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+  private static readonly PERSIST_DEBOUNCE_MS = 30000; // Persist at most every 30s per session
+
+  private persistActivityToDb(sessionId: string, timestamp: number): void {
+    // Debounce DB writes to avoid excessive updates
+    const existing = this.persistActivityDebounce.get(sessionId);
+    if (existing) return;
+
+    const timeout = setTimeout(() => {
+      this.persistActivityDebounce.delete(sessionId);
+      this.sessionRepo
+        .update(sessionId, {
+          metadata: { lastActivityAt: new Date(timestamp).toISOString() },
+        })
+        .then(() => {
+          logger.debug({ sessionId }, 'Persisted activity timestamp to DB');
+        })
+        .catch((error: unknown) => {
+          logger.debug(
+            { sessionId, error: error instanceof Error ? error.message : String(error) },
+            'Failed to persist activity to DB (non-fatal)'
+          );
+        });
+    }, SessionTimeoutService.PERSIST_DEBOUNCE_MS);
+
+    // Don't block process exit
+    if (timeout.unref) timeout.unref();
+    this.persistActivityDebounce.set(sessionId, timeout);
+  }
+
+  private async findOrphanedStaleSessions(staleThreshold: number): Promise<string[]> {
+    const orphanedStale: string[] = [];
+
+    try {
+      const activeSessions = await this.sessionRepo.list({ status: 'active' }, { limit: 100 });
+
+      for (const session of activeSessions) {
+        if (this.activityMap.has(session.id)) continue;
+
+        const lastActivityAt = this.getLastActivityFromSession(session);
+        if (lastActivityAt < staleThreshold) {
+          orphanedStale.push(session.id);
+          logger.debug(
+            { sessionId: session.id, lastActivityAt: new Date(lastActivityAt).toISOString() },
+            'Found orphaned stale session via DB fallback'
+          );
+        }
+      }
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to query DB for orphaned sessions (non-fatal)'
+      );
+    }
+
+    return orphanedStale;
+  }
+
+  private getLastActivityFromSession(session: {
+    startedAt: string;
+    metadata?: Record<string, unknown> | null;
+  }): number {
+    const metadataActivity = session.metadata?.lastActivityAt;
+    if (typeof metadataActivity === 'string') {
+      const parsed = new Date(metadataActivity).getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+    return new Date(session.startedAt).getTime();
   }
 
   async checkAndEndStaleSessions(): Promise<number> {
@@ -120,6 +196,13 @@ export class SessionTimeoutService implements ISessionTimeoutService {
     const staleSessions: string[] = [];
     for (const [sessionId, lastActivity] of this.activityMap.entries()) {
       if (lastActivity < staleThreshold) {
+        staleSessions.push(sessionId);
+      }
+    }
+
+    const dbStaleSessions = await this.findOrphanedStaleSessions(staleThreshold);
+    for (const sessionId of dbStaleSessions) {
+      if (!staleSessions.includes(sessionId)) {
         staleSessions.push(sessionId);
       }
     }
@@ -233,8 +316,14 @@ export class SessionTimeoutService implements ISessionTimeoutService {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
-      logger.info('Session timeout checker stopped');
     }
+
+    for (const timeout of this.persistActivityDebounce.values()) {
+      clearTimeout(timeout);
+    }
+    this.persistActivityDebounce.clear();
+
+    logger.info('Session timeout checker stopped');
   }
 
   getLastActivity(sessionId: string): number | undefined {

@@ -23,5 +23,13 @@ export const runtimeSection: ConfigSectionMeta = {
       description: 'Project root directory (computed, not from env var).',
       schema: z.string(),
     },
+    singleInstance: {
+      envKey: 'AGENT_MEMORY_SINGLE_INSTANCE',
+      defaultValue: true,
+      description:
+        'Enforce single MCP server instance via PID file. Set to false to allow multiple instances.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
   },
 };

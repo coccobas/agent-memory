@@ -118,6 +118,29 @@ export const captureSection: ConfigSectionMeta = {
       schema: z.enum(['sha256', 'md5']),
     },
 
+    // Knowledge extraction from tool outputs
+    knowledgeExtractionEnabled: {
+      envKey: 'AGENT_MEMORY_KNOWLEDGE_EXTRACTION_ENABLED',
+      defaultValue: true,
+      description: 'Enable LLM-based knowledge extraction from tool outputs.',
+      schema: z.boolean(),
+      parse: 'boolean',
+    },
+    knowledgeExtractionTools: {
+      envKey: 'AGENT_MEMORY_KNOWLEDGE_EXTRACTION_TOOLS',
+      defaultValue: 'Read,Grep,Glob,Bash,WebFetch',
+      description:
+        'Comma-separated list of tools to extract knowledge from. These are read-oriented tools that discover information.',
+      schema: z.string(),
+    },
+    knowledgeExtractionMinOutputLength: {
+      envKey: 'AGENT_MEMORY_KNOWLEDGE_EXTRACTION_MIN_OUTPUT_LENGTH',
+      defaultValue: 50,
+      description: 'Minimum tool output length (chars) to trigger extraction.',
+      schema: z.number().int().min(0),
+      parse: 'int',
+    },
+
     // Confidence thresholds
     confidenceExperience: {
       envKey: 'AGENT_MEMORY_CAPTURE_CONFIDENCE_EXPERIENCE',

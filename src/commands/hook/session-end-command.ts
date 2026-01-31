@@ -254,6 +254,7 @@ export async function runSessionEndCommand(params: {
                     eventIndices: pattern.eventIndices,
                     applicability: pattern.applicability,
                     contraindications: pattern.contraindications,
+                    nameSource: 'auto',
                   },
                   createdBy: agentId,
                 });

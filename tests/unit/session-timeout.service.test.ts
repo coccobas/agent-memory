@@ -298,4 +298,111 @@ describe('SessionTimeoutService', () => {
       expect(minimalService.getLastActivity('session-1')).toBeDefined();
     });
   });
+
+  describe('DB-based orphaned session detection', () => {
+    it('should find and end orphaned stale sessions from DB', async () => {
+      const staleSession = {
+        id: 'orphan-session',
+        status: 'active',
+        startedAt: new Date(Date.now() - 2000).toISOString(),
+        metadata: null,
+      };
+
+      vi.mocked(mockSessionRepo.list).mockResolvedValue([staleSession] as any);
+      vi.mocked(mockSessionRepo.getById).mockResolvedValue(staleSession as any);
+      vi.mocked(mockSessionRepo.end).mockResolvedValue(staleSession as any);
+
+      const endedCount = await service.checkAndEndStaleSessions();
+
+      expect(mockSessionRepo.list).toHaveBeenCalledWith({ status: 'active' }, { limit: 100 });
+      expect(endedCount).toBe(1);
+      expect(mockSessionRepo.end).toHaveBeenCalledWith('orphan-session', 'completed');
+    });
+
+    it('should use lastActivityAt from metadata when available', async () => {
+      const recentActivitySession = {
+        id: 'recent-session',
+        status: 'active',
+        startedAt: new Date(Date.now() - 2000).toISOString(),
+        metadata: { lastActivityAt: new Date().toISOString() },
+      };
+
+      vi.mocked(mockSessionRepo.list).mockResolvedValue([recentActivitySession] as any);
+
+      const endedCount = await service.checkAndEndStaleSessions();
+
+      expect(endedCount).toBe(0);
+      expect(mockSessionRepo.end).not.toHaveBeenCalled();
+    });
+
+    it('should not end sessions already tracked in memory', async () => {
+      const trackedSession = {
+        id: 'tracked-session',
+        status: 'active',
+        startedAt: new Date(Date.now() - 2000).toISOString(),
+        metadata: null,
+      };
+
+      service.recordActivity('tracked-session');
+
+      vi.mocked(mockSessionRepo.list).mockResolvedValue([trackedSession] as any);
+
+      vi.advanceTimersByTime(500);
+      const endedCount = await service.checkAndEndStaleSessions();
+
+      expect(endedCount).toBe(0);
+    });
+
+    it('should handle DB list errors gracefully', async () => {
+      vi.mocked(mockSessionRepo.list).mockRejectedValue(new Error('DB error'));
+
+      const endedCount = await service.checkAndEndStaleSessions();
+
+      expect(endedCount).toBe(0);
+    });
+  });
+
+  describe('activity persistence to DB', () => {
+    it('should persist activity to session metadata after debounce', async () => {
+      vi.mocked(mockSessionRepo.update).mockResolvedValue({} as any);
+      vi.mocked(mockSessionRepo.list).mockResolvedValue([]);
+
+      service.recordActivity('session-1');
+
+      expect(mockSessionRepo.update).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(30001);
+      await vi.runAllTimersAsync();
+
+      expect(mockSessionRepo.update).toHaveBeenCalledWith('session-1', {
+        metadata: { lastActivityAt: expect.any(String) },
+      });
+    });
+
+    it('should debounce multiple activity recordings', async () => {
+      vi.mocked(mockSessionRepo.update).mockResolvedValue({} as any);
+      vi.mocked(mockSessionRepo.list).mockResolvedValue([]);
+
+      service.recordActivity('session-1');
+      vi.advanceTimersByTime(10000);
+      service.recordActivity('session-1');
+      vi.advanceTimersByTime(10000);
+      service.recordActivity('session-1');
+      vi.advanceTimersByTime(30001);
+      await vi.runAllTimersAsync();
+
+      expect(mockSessionRepo.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('should clear debounce timers on stop', () => {
+      vi.mocked(mockSessionRepo.list).mockResolvedValue([]);
+
+      service.recordActivity('session-1');
+      service.stop();
+
+      vi.advanceTimersByTime(30001);
+
+      expect(mockSessionRepo.update).not.toHaveBeenCalled();
+    });
+  });
 });

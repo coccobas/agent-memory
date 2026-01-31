@@ -246,6 +246,17 @@ const DEFAULT_ERROR_ANALYSIS_CONFIG: ErrorAnalysisConfig = {
   maxErrorsToAnalyze: 50,
 };
 
+function getKnowledgeExtractionTools(): string[] {
+  const envValue = process.env.AGENT_MEMORY_KNOWLEDGE_EXTRACTION_TOOLS;
+  if (envValue) {
+    return envValue
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+  return ['Read', 'Grep', 'Glob', 'Bash', 'WebFetch'];
+}
+
 const DEFAULT_CONFIG: HookLearningConfig = {
   enabled: true,
   minFailuresForExperience: 2,
@@ -254,10 +265,13 @@ const DEFAULT_CONFIG: HookLearningConfig = {
   analysisThreshold: 5,
   defaultConfidence: 0.6,
   includeToolInput: false,
-  enableKnowledgeExtraction: true,
+  enableKnowledgeExtraction: process.env.AGENT_MEMORY_KNOWLEDGE_EXTRACTION_ENABLED !== 'false',
   knowledgeConfidenceThreshold: 0.7,
-  knowledgeExtractionTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebFetch'],
-  minOutputLengthForKnowledge: 50,
+  knowledgeExtractionTools: getKnowledgeExtractionTools(),
+  minOutputLengthForKnowledge: parseInt(
+    process.env.AGENT_MEMORY_KNOWLEDGE_EXTRACTION_MIN_OUTPUT_LENGTH || '50',
+    10
+  ),
   enableTriggerParsing: true,
   triggerConfidenceThreshold: 0.8,
   minMessageLengthForTriggers: 20,

@@ -255,6 +255,7 @@ export interface Config {
   runtime: {
     nodeEnv: string;
     projectRoot: string;
+    singleInstance: boolean;
   };
   timestamps: {
     displayTimezone: string;
@@ -465,6 +466,9 @@ export interface Config {
     toolCountThreshold: number;
     minSuccessCount: number;
     analysisTimeoutMs: number;
+  };
+  dashboard: {
+    url: string;
   };
 }
 

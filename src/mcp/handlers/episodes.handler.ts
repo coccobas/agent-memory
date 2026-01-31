@@ -193,7 +193,7 @@ const addHandler: ContextAwareHandler = async (
     triggerType,
     triggerRef,
     tags,
-    metadata,
+    metadata: { ...metadata, nameSource: 'user' as const },
     createdBy: createdBy ?? agentId,
   });
 
@@ -446,7 +446,13 @@ const completeHandler: ContextAwareHandler = async (
   let episode = await episodeService.complete(resolved.id, outcome, outcomeType);
 
   const enrichmentService = getEpisodeNameEnrichmentService();
-  if (enrichmentService.isEnabled()) {
+  const parsedMetadata =
+    typeof episode.metadata === 'string'
+      ? (JSON.parse(episode.metadata) as Record<string, unknown>)
+      : (episode.metadata as Record<string, unknown> | null);
+  const isUserProvidedName = parsedMetadata?.nameSource === 'user';
+
+  if (enrichmentService.isEnabled() && !isUserProvidedName) {
     try {
       const enrichResult = await enrichmentService.enrichName({
         originalName: episode.name,
@@ -572,7 +578,13 @@ const failHandler: ContextAwareHandler = async (
   let episode = await episodeService.fail(resolved.id, outcome);
 
   const enrichmentService = getEpisodeNameEnrichmentService();
-  if (enrichmentService.isEnabled()) {
+  const parsedFailMetadata =
+    typeof episode.metadata === 'string'
+      ? (JSON.parse(episode.metadata) as Record<string, unknown>)
+      : (episode.metadata as Record<string, unknown> | null);
+  const isUserProvidedNameOnFail = parsedFailMetadata?.nameSource === 'user';
+
+  if (enrichmentService.isEnabled() && !isUserProvidedNameOnFail) {
     try {
       const enrichResult = await enrichmentService.enrichName({
         originalName: episode.name,
@@ -744,6 +756,12 @@ const beginHandler: ContextAwareHandler = async (
     }
   }
 
+  // Mark name as user-provided to prevent LLM enrichment from modifying it
+  const enrichedMetadata = {
+    ...metadata,
+    nameSource: 'user' as const,
+  };
+
   const created = await episodeService.create({
     scopeType,
     scopeId,
@@ -756,7 +774,7 @@ const beginHandler: ContextAwareHandler = async (
     triggerType,
     triggerRef,
     tags,
-    metadata,
+    metadata: enrichedMetadata,
     createdBy: createdBy ?? agentId,
   });
 

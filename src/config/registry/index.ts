@@ -71,6 +71,7 @@ import { compressionSection } from './sections/compression.js';
 import { episodeEnrichmentSection } from './sections/episodeEnrichment.js';
 import { notionSyncSection } from './sections/notion-sync.js';
 import { periodicAnalysisSection } from './sections/periodicAnalysis.js';
+import { dashboardSection } from './sections/dashboard.js';
 
 // =============================================================================
 // TOP-LEVEL OPTIONS
@@ -146,6 +147,7 @@ export const configRegistry: ConfigRegistry = {
     episodeEnrichment: episodeEnrichmentSection,
     notionSync: notionSyncSection,
     periodicAnalysis: periodicAnalysisSection,
+    dashboard: dashboardSection,
   },
 };
 

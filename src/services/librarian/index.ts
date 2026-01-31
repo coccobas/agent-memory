@@ -165,6 +165,7 @@ export class LibrarianService {
     vector?: IVectorService;
     latentMemory?: LatentMemoryService;
     semanticEdgeInference?: SemanticEdgeInferenceService;
+    extraction?: IExtractionService;
   }): void {
     this.maintenanceOrchestrator = new MaintenanceOrchestrator(deps, this.config.maintenance);
     this.sessionLifecycle.setMaintenanceOrchestrator(this.maintenanceOrchestrator);

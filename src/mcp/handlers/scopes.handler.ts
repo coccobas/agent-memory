@@ -34,6 +34,7 @@ import { getInjectionTrackerService } from '../../services/injection-tracking/in
 
 const logger = createComponentLogger('scopes');
 import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
+import { createSessionEpisodeCleanup } from '../../services/episode/session-cleanup.js';
 import type {
   OrgCreateParams,
   OrgListParams,
@@ -340,6 +341,27 @@ export const scopeHandlers = {
           'id',
           'is required',
           'No session id provided and no active session found. Either provide a session id or start a session first.'
+        );
+      }
+    }
+
+    let episodeCleanupResult = null;
+    if (context.repos.episodes && status !== 'discarded') {
+      const sessionEpisodeCleanup = createSessionEpisodeCleanup({
+        episodeRepo: context.repos.episodes,
+        episodeService: context.services.episode,
+        captureService: context.services.capture,
+        unifiedMessageSource: context.services.unifiedMessageSource,
+      });
+      episodeCleanupResult = await sessionEpisodeCleanup.completeSessionEpisode(id, 'session_end');
+      if (episodeCleanupResult.episodeId) {
+        logger.debug(
+          {
+            sessionId: id,
+            episodeId: episodeCleanupResult.episodeId,
+            action: episodeCleanupResult.action,
+          },
+          'Completed episode on session end'
         );
       }
     }

@@ -54,7 +54,8 @@
     "*.example.ts",
     "vitest.config.ts",
     "plugins/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "dashboard/**/*"
   ],
   "overrides": [
     {

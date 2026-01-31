@@ -902,13 +902,16 @@ const run_maintenance: ContextAwareHandler = async (context, params) => {
     }
   })();
 
+  const dashboardUrl = context.config.dashboard.url;
+
   return {
     success: true,
     ...(scopeWarning && { warning: scopeWarning }),
     job: {
       id: job.id,
       status: job.status,
-      message: 'Maintenance job started. Poll with get_job_status action.',
+      message: `Maintenance job started. Monitor progress at: ${dashboardUrl}`,
+      dashboardUrl,
       tasks: job.progress.tasks.map((t: { name: string }) => t.name),
     },
   };
