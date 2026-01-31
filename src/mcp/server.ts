@@ -58,11 +58,8 @@ import { setNotificationServer, clearNotificationServer } from './notification.s
 import { initializeRootsService, handleRootsChanged, clearRootsState } from './roots.service.js';
 import { clearWorkingDirectoryCache } from '../utils/working-directory.js';
 import { createComponentLogger } from '../utils/logger.js';
-import {
-  createOutcomeInferenceService,
-  type OutcomeInferenceService,
-} from '../services/capture/outcome-inference.js';
-import type { TurnData } from '../services/capture/types.js';
+import { acquirePidFile, releasePidFile } from '../utils/pid-file.js';
+import { createSessionEpisodeCleanup } from '../services/episode/session-cleanup.js';
 
 // =============================================================================
 // BUNDLED TOOL DEFINITIONS
@@ -234,6 +231,12 @@ export async function runServer(
   // Early security check: warn if permissive mode is enabled
   logPermissiveModeStartupWarning('mcp');
 
+  const pidResult = acquirePidFile({ disabled: !config.runtime.singleInstance });
+  if (!pidResult.shouldProceed) {
+    logger.error({ existingPid: pidResult.existingPid }, pidResult.message);
+    process.exit(1);
+  }
+
   let server: Server;
   let context: AppContext;
   let transport: StdioServerTransport | null = null;
@@ -269,36 +272,14 @@ export async function runServer(
 
   const cleanupLogger = createComponentLogger('mcp-cleanup');
 
-  const outcomeInference: OutcomeInferenceService = createOutcomeInferenceService({
-    provider: config.extraction.provider === 'disabled' ? 'none' : config.extraction.provider,
-    confidenceThreshold: 0.6,
-  });
-
-  async function getSessionTranscript(sessionId: string): Promise<TurnData[]> {
-    try {
-      if (!context.services.unifiedMessageSource) {
-        return [];
-      }
-
-      const { messages } = await context.services.unifiedMessageSource.getMessagesForSession(
-        sessionId,
-        { limit: 20 }
-      );
-
-      return messages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        timestamp: m.timestamp,
-        toolCalls: m.toolsUsed?.map((t) => ({ name: t, input: {}, success: true })),
-      }));
-    } catch (error) {
-      cleanupLogger.warn(
-        { sessionId, error: error instanceof Error ? error.message : String(error) },
-        'Failed to retrieve session transcript for outcome inference'
-      );
-      return [];
-    }
-  }
+  const sessionEpisodeCleanup = context.repos.episodes
+    ? createSessionEpisodeCleanup({
+        episodeRepo: context.repos.episodes,
+        episodeService: context.services.episode,
+        captureService: context.services.capture,
+        unifiedMessageSource: context.services.unifiedMessageSource,
+      })
+    : null;
 
   async function cleanupActiveSessions(reason: string): Promise<void> {
     try {
@@ -319,69 +300,8 @@ export async function runServer(
 
       for (const session of activeSessions) {
         try {
-          if (context.repos.episodes) {
-            const activeEpisode = await context.repos.episodes.getActiveEpisode(session.id);
-            if (activeEpisode) {
-              const transcript = await getSessionTranscript(session.id);
-              const inferred = await outcomeInference.inferOutcome(transcript);
-
-              cleanupLogger.debug(
-                {
-                  episodeId: activeEpisode.id,
-                  sessionId: session.id,
-                  inferredOutcome: inferred.outcomeType,
-                  confidence: inferred.confidence,
-                  method: inferred.method,
-                },
-                'Inferred episode outcome from transcript'
-              );
-
-              if (inferred.confidence >= 0.5 && inferred.outcomeType !== 'unknown') {
-                const outcomeMap: Record<string, 'success' | 'partial' | 'failure' | 'abandoned'> =
-                  {
-                    success: 'success',
-                    partial: 'partial',
-                    failure: 'failure',
-                    unknown: 'abandoned',
-                  };
-                const mappedOutcome = outcomeMap[inferred.outcomeType] ?? 'abandoned';
-
-                if (mappedOutcome === 'success' || mappedOutcome === 'partial') {
-                  await context.repos.episodes.complete(
-                    activeEpisode.id,
-                    inferred.reasoning,
-                    mappedOutcome
-                  );
-                  cleanupLogger.info(
-                    {
-                      episodeId: activeEpisode.id,
-                      outcome: mappedOutcome,
-                      confidence: inferred.confidence,
-                    },
-                    'Completed episode based on inferred outcome'
-                  );
-                } else {
-                  await context.repos.episodes.fail(activeEpisode.id, inferred.reasoning);
-                  cleanupLogger.info(
-                    {
-                      episodeId: activeEpisode.id,
-                      outcome: 'failure',
-                      confidence: inferred.confidence,
-                    },
-                    'Failed episode based on inferred outcome'
-                  );
-                }
-              } else {
-                await context.repos.episodes.cancel(
-                  activeEpisode.id,
-                  `Session ended due to ${reason} (outcome uncertain)`
-                );
-                cleanupLogger.debug(
-                  { episodeId: activeEpisode.id, sessionId: session.id },
-                  'Cancelled episode (outcome could not be inferred)'
-                );
-              }
-            }
+          if (sessionEpisodeCleanup) {
+            await sessionEpisodeCleanup.completeSessionEpisode(session.id, reason);
           }
 
           if (context.services.transcript && context.repos.ideTranscripts) {
@@ -421,10 +341,10 @@ export async function runServer(
   async function shutdown(signal: string, exitCode = 0): Promise<void> {
     logger.info({ signal }, 'Shutdown signal received');
 
-    // Log shutdown to action log
+    releasePidFile(pidResult.pidFilePath);
+
     logShutdown(signal);
 
-    // Clear notification server reference
     clearNotificationServer();
 
     // Clear roots state
@@ -463,6 +383,26 @@ export async function runServer(
   try {
     transport = new StdioServerTransport();
     logger.debug('Transport created');
+
+    // Safety net: SDK's onclose may miss abrupt parent termination (e.g., IDE force-quit)
+    let stdinClosed = false;
+    const handleStdinClosure = (reason: string) => {
+      if (stdinClosed) return;
+      stdinClosed = true;
+      logger.info({ reason }, 'stdin closed - parent process likely terminated');
+      void shutdown(reason);
+    };
+
+    process.stdin.on('end', () => handleStdinClosure('stdin-end'));
+    process.stdin.on('close', () => handleStdinClosure('stdin-close'));
+    process.stdin.on('error', (err: NodeJS.ErrnoException) => {
+      const isPipeError = err.code === 'EPIPE' || err.code === 'ERR_STREAM_DESTROYED';
+      if (isPipeError) {
+        handleStdinClosure(`stdin-error-${err.code}`);
+      } else {
+        logger.warn({ error: err.message, code: err.code }, 'stdin error (non-fatal)');
+      }
+    });
 
     // Detect client disconnection via SDK callbacks
     server.onclose = () => {
