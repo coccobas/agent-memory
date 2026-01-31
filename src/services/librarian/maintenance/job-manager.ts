@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { EventEmitter } from 'events';
 import { createComponentLogger } from '../../../utils/logger.js';
 import type { MaintenanceRequest, MaintenanceResult, QueueConfig } from './types.js';
 import { DEFAULT_QUEUE_CONFIG } from './types.js';
@@ -9,6 +10,17 @@ import type {
 import type { StoredJobProgress, StoredTaskProgress } from '../../../db/schema/maintenance-jobs.js';
 
 const logger = createComponentLogger('maintenance-job-manager');
+
+// Event types for job status updates
+export interface JobEventMap {
+  'job:created': { job: MaintenanceJob };
+  'job:started': { job: MaintenanceJob };
+  'job:task_progress': { jobId: string; taskName: string; task: MaintenanceTaskProgress };
+  'job:completed': { job: MaintenanceJob; result: MaintenanceResult };
+  'job:failed': { job: MaintenanceJob; error: string };
+}
+
+export type JobEventName = keyof JobEventMap;
 
 export type MaintenanceJobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -134,7 +146,7 @@ function recordToJob(record: MaintenanceJobRecord): MaintenanceJob {
 
 export type ExecuteCallback = (job: MaintenanceJob) => Promise<void>;
 
-export class MaintenanceJobManager {
+export class MaintenanceJobManager extends EventEmitter {
   private jobs: Map<string, MaintenanceJob> = new Map();
   private config: JobManagerConfig;
   private cleanupInterval?: NodeJS.Timeout;
@@ -143,10 +155,19 @@ export class MaintenanceJobManager {
   private executeCallback?: ExecuteCallback;
 
   constructor(config?: Partial<JobManagerConfig>) {
+    super();
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.cleanupInterval = setInterval(() => {
       void this.cleanup();
     }, 60_000);
+  }
+
+  emit<K extends JobEventName>(event: K, data: JobEventMap[K]): boolean {
+    return super.emit(event, data);
+  }
+
+  on<K extends JobEventName>(event: K, listener: (data: JobEventMap[K]) => void): this {
+    return super.on(event, listener);
   }
 
   setRepository(repo: IMaintenanceJobRepository): void {
@@ -266,6 +287,7 @@ export class MaintenanceJobManager {
 
     logger.info({ jobId: id, tasks: tasksToRun }, 'Created maintenance job');
     this.enforceMaxHistory();
+    this.emit('job:created', { job });
     return job;
   }
 
@@ -274,14 +296,11 @@ export class MaintenanceJobManager {
   }
 
   async getJobWithFallback(id: string): Promise<MaintenanceJob | undefined> {
-    let job = this.jobs.get(id);
-    if (job) return job;
-
     if (this.repository) {
       try {
         const record = await this.repository.getById(id);
         if (record) {
-          job = recordToJob(record);
+          const job = recordToJob(record);
           this.jobs.set(id, job);
           return job;
         }
@@ -290,7 +309,7 @@ export class MaintenanceJobManager {
       }
     }
 
-    return undefined;
+    return this.jobs.get(id);
   }
 
   listJobs(status?: MaintenanceJobStatus): MaintenanceJob[] {
@@ -306,9 +325,7 @@ export class MaintenanceJobManager {
       try {
         const records = await this.repository.list(status ? { status } : {}, { limit: 100 });
         for (const record of records) {
-          if (!this.jobs.has(record.id)) {
-            this.jobs.set(record.id, recordToJob(record));
-          }
+          this.jobs.set(record.id, recordToJob(record));
         }
       } catch (error) {
         logger.warn({ error }, 'Failed to load jobs from database');
@@ -345,6 +362,7 @@ export class MaintenanceJobManager {
     }
 
     logger.info({ jobId: id }, 'Job started');
+    this.emit('job:started', { job });
   }
 
   async updateTaskProgress(
@@ -387,6 +405,10 @@ export class MaintenanceJobManager {
         logger.warn({ jobId, taskName, error }, 'Failed to update task progress in database');
       }
     }
+
+    if (task) {
+      this.emit('job:task_progress', { jobId, taskName, task });
+    }
   }
 
   async completeJob(id: string, result: MaintenanceResult): Promise<void> {
@@ -421,7 +443,8 @@ export class MaintenanceJobManager {
       'Job completed'
     );
 
-    // Trigger queue processing asynchronously to start next pending job
+    this.emit('job:completed', { job, result });
+
     setImmediate(() => {
       void this.processQueue().catch((err: unknown) => {
         logger.error({ err }, 'Failed to process queue after job completion');
@@ -453,6 +476,8 @@ export class MaintenanceJobManager {
     }
 
     logger.error({ jobId: id, error }, 'Job failed');
+
+    this.emit('job:failed', { job, error });
 
     setImmediate(() => {
       void this.processQueue().catch((err: unknown) => {

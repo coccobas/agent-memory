@@ -3,6 +3,7 @@ import type { AppContext } from '../../core/context.js';
 import { QueryController } from '../controllers/query.controller.js';
 import { ContextController } from '../controllers/context.controller.js';
 import { registerToolRoutes } from './tools.js';
+import { registerJobsSSERoutes } from './jobs-sse.js';
 import { generateOpenAPISpec, type OpenAPISpec } from '../openapi/generator.js';
 
 // Cache the OpenAPI spec (generated once on startup)
@@ -24,6 +25,6 @@ export async function registerV1Routes(app: FastifyInstance, context: AppContext
     return reply.send(cachedSpec);
   });
 
-  // Register tool execution routes
   await registerToolRoutes(app, context);
+  await registerJobsSSERoutes(app);
 }
