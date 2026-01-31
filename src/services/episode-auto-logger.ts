@@ -308,8 +308,8 @@ export function createEpisodeAutoLoggerService(
               const created = await episodeRepo.create({
                 sessionId,
                 projectId: event.projectId,
-                scopeType: 'session',
-                scopeId: sessionId,
+                scopeType: event.projectId ? 'project' : 'session',
+                scopeId: event.projectId ?? sessionId,
                 name: episodeName,
                 triggerType: 'auto_detection',
                 triggerRef: 'first_tool_usage',
@@ -318,6 +318,7 @@ export function createEpisodeAutoLoggerService(
                   zeroFriction: true,
                   triggerTool: event.toolName,
                   triggerAction: event.action,
+                  nameSource: 'auto',
                 },
               });
               activeEpisode = await episodeRepo.start(created.id);

@@ -31,6 +31,22 @@ import { checkStaleCode, type StaleCodeInfo } from '../../utils/server-diagnosti
 import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
 import type { WhatHappenedResult } from '../../services/episode/index.js';
 
+function isSessionStale(
+  session: { startedAt: string; metadata?: Record<string, unknown> | null },
+  inactivityMs: number
+): boolean {
+  const now = Date.now();
+  const staleThreshold = now - inactivityMs;
+
+  const metadataActivity = session.metadata?.lastActivityAt;
+  if (typeof metadataActivity === 'string') {
+    const parsed = new Date(metadataActivity).getTime();
+    if (!isNaN(parsed)) return parsed < staleThreshold;
+  }
+
+  return new Date(session.startedAt).getTime() < staleThreshold;
+}
+
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
   name: 'memory_quickstart',
   visibility: 'core',
@@ -259,8 +275,9 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
         );
 
         const existingSession = activeSessions[0];
-        if (existingSession) {
-          // Resume existing session instead of creating new one
+        const inactivityMs = ctx.config.autoContext?.sessionInactivityMs ?? 30 * 60 * 1000;
+
+        if (existingSession && !isSessionStale(existingSession, inactivityMs)) {
           existingSessionName = existingSession.name ?? null;
           sessionResult = {
             success: true,
@@ -269,6 +286,9 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           };
           sessionAction = 'resumed';
         } else {
+          if (existingSession) {
+            await ctx.repos.sessions.end(existingSession.id, 'completed');
+          }
           // Create new session
           const sessionParams: SessionStartParams = {
             projectId: detectedProjectId,
@@ -404,8 +424,9 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           // Create and start episode
           const createdEpisode = await ctx.services.episode.create({
             sessionId,
-            scopeType: 'session',
-            scopeId: sessionId,
+            projectId: detectedProjectId,
+            scopeType: detectedProjectId ? 'project' : 'session',
+            scopeId: detectedProjectId ?? sessionId,
             name: sessionName,
             triggerType: 'auto_detection',
             triggerRef: triggerMatch.triggerType ?? 'session_start',
