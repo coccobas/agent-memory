@@ -52,6 +52,8 @@ export interface ToolExecutionEvent {
   success: boolean;
   sessionId?: string;
   projectId?: string;
+  /** Semantic summary of the tool execution (e.g., "Learned that auth tokens expire after 1 hour") */
+  semanticSummary?: string;
   /** Optional additional context from the tool execution */
   context?: {
     /** Entry type if created (guideline, knowledge, tool, etc.) */
@@ -60,6 +62,8 @@ export interface ToolExecutionEvent {
     entryId?: string;
     /** Entry name/title if available */
     entryName?: string;
+    /** Output excerpt for trajectory building */
+    outputExcerpt?: string;
     /** Any additional metadata */
     metadata?: Record<string, unknown>;
   };
@@ -104,8 +108,13 @@ function inferEventType(
 function generateEventName(
   toolName: string,
   action: string | undefined,
-  context?: ToolExecutionEvent['context']
+  context?: ToolExecutionEvent['context'],
+  semanticSummary?: string
 ): string {
+  if (semanticSummary) {
+    return truncate(semanticSummary, 60);
+  }
+
   // Remove 'memory_' prefix for cleaner names
   const cleanToolName = toolName.replace(/^memory_/, '');
 
@@ -349,21 +358,34 @@ export function createEpisodeAutoLoggerService(
 
         // Create the event
         const eventType = inferEventType(event.toolName, event.action);
-        const eventName = generateEventName(event.toolName, event.action, event.context);
+        const eventName = generateEventName(
+          event.toolName,
+          event.action,
+          event.context,
+          event.semanticSummary
+        );
+
+        const description =
+          event.semanticSummary ??
+          (event.context?.entryName
+            ? `${event.action}: ${event.context.entryName}`
+            : event.action
+              ? `Tool ${event.toolName} with action ${event.action}`
+              : `Tool ${event.toolName}`);
 
         await episodeRepo.addEvent({
           episodeId: activeEpisode.id,
           eventType,
           name: eventName,
-          description: event.action
-            ? `Tool ${event.toolName} with action ${event.action}`
-            : `Tool ${event.toolName}`,
+          description,
           entryType: event.context?.entryType,
           entryId: event.context?.entryId,
           data: {
             tool: event.toolName,
             action: event.action,
             autoLogged: true,
+            semanticSummary: event.semanticSummary,
+            outputExcerpt: event.context?.outputExcerpt,
             ...event.context?.metadata,
           },
         });
