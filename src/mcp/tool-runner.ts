@@ -246,13 +246,15 @@ export async function runTool(
     // Auto-log tool execution as episode event (if enabled)
     // Fire-and-forget to avoid adding latency to tool response
     if (context.services.episodeAutoLogger?.isEnabled() && detectedContext?.session?.id) {
-      // Extract context from the result for richer event logging
       const eventContext = extractEventContext(name, enrichedArgs, result);
+      const semanticSummary = extractSemanticSummary(name, action, enrichedArgs, result);
       void context.services.episodeAutoLogger.logToolExecution({
         toolName: name,
         action,
         success: true,
         sessionId: detectedContext.session.id,
+        projectId: detectedContext.project?.id,
+        semanticSummary,
         context: eventContext,
       });
     }
@@ -605,6 +607,70 @@ function extractEventContext(
   // Only return if we have some context
   if (context.entryType || context.entryId || context.entryName) {
     return context;
+  }
+
+  return undefined;
+}
+
+function extractSemanticSummary(
+  toolName: string,
+  action: string | undefined,
+  args: Record<string, unknown>,
+  result: unknown
+): string | undefined {
+  const resultObj = result as Record<string, unknown> | null;
+  const getString = (val: unknown): string | undefined =>
+    typeof val === 'string' ? val : undefined;
+
+  if (toolName === 'memory_experience' && action === 'learn') {
+    const experience = resultObj?.experience as Record<string, unknown> | undefined;
+    const title = getString(experience?.title) ?? getString(args.text);
+    if (title) return `Learned: ${title.slice(0, 80)}`;
+  }
+
+  if (toolName === 'memory_experience' && action === 'record_case') {
+    const title = getString(args.title) ?? getString(args.scenario);
+    if (title) return `Recorded case: ${title.slice(0, 80)}`;
+  }
+
+  if (toolName === 'memory_guideline' && action === 'add') {
+    const guideline = resultObj?.guideline as Record<string, unknown> | undefined;
+    const name = getString(guideline?.name) ?? getString(args.name);
+    if (name) return `Added guideline: ${name}`;
+  }
+
+  if (toolName === 'memory_knowledge' && action === 'add') {
+    const knowledge = resultObj?.knowledge as Record<string, unknown> | undefined;
+    const title = getString(knowledge?.title) ?? getString(args.title);
+    if (title) return `Added knowledge: ${title.slice(0, 80)}`;
+  }
+
+  if (toolName === 'memory_tool' && action === 'add') {
+    const tool = resultObj?.tool as Record<string, unknown> | undefined;
+    const name = getString(tool?.name) ?? getString(args.name);
+    if (name) return `Added tool: ${name}`;
+  }
+
+  if (toolName === 'memory_remember') {
+    const stored = resultObj?.stored as Record<string, unknown> | undefined;
+    const type = getString(stored?.type) ?? 'entry';
+    const title = getString(stored?.title) ?? getString(args.text)?.slice(0, 50);
+    if (title) return `Remembered ${type}: ${title}`;
+  }
+
+  if (toolName === 'memory_episode') {
+    if (action === 'begin' || action === 'add') {
+      const name = getString(args.name) ?? 'episode';
+      return `Started episode: ${name}`;
+    }
+    if (action === 'complete') {
+      const outcome = getString(args.outcome);
+      return outcome ? `Completed: ${outcome.slice(0, 60)}` : 'Completed episode';
+    }
+    if (action === 'log') {
+      const message = getString(args.message);
+      if (message) return `Logged: ${message.slice(0, 60)}`;
+    }
   }
 
   return undefined;
