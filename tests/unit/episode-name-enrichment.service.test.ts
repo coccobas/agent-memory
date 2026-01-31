@@ -55,7 +55,7 @@ describe('EpisodeNameEnrichmentService', () => {
   });
 
   describe('enrichName', () => {
-    it('should return original name when disabled', async () => {
+    it('should use template fallback when disabled (if outcome differs from name)', async () => {
       const service = new EpisodeNameEnrichmentService({ provider: 'disabled' });
       const input: EnrichmentInput = {
         originalName: 'Test episode',
@@ -65,9 +65,24 @@ describe('EpisodeNameEnrichmentService', () => {
 
       const result = await service.enrichName(input);
 
+      expect(result.wasEnriched).toBe(true);
+      expect(result.enrichedName).toBe('Completed: Did something');
+      expect(result.originalName).toBe('Test episode');
+      expect(result.model).toBe('template');
+    });
+
+    it('should return original name when disabled and no useful outcome', async () => {
+      const service = new EpisodeNameEnrichmentService({ provider: 'disabled' });
+      const input: EnrichmentInput = {
+        originalName: 'Test episode',
+        outcome: 'Test episode',
+        outcomeType: 'success',
+      };
+
+      const result = await service.enrichName(input);
+
       expect(result.wasEnriched).toBe(false);
       expect(result.enrichedName).toBe('Test episode');
-      expect(result.originalName).toBe('Test episode');
     });
 
     it('should skip enrichment for already descriptive names (>50 chars)', async () => {

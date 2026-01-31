@@ -157,8 +157,8 @@ export class EpisodeNameEnrichmentService {
     };
 
     if (!this.isEnabled()) {
-      logger.debug('Episode name enrichment is disabled');
-      return defaultResult;
+      logger.debug('Episode name enrichment LLM is disabled, trying template fallback');
+      return this.templateEnrich(input);
     }
 
     if (input.originalName.length > 50) {
@@ -199,9 +199,9 @@ export class EpisodeNameEnrichmentService {
           error: error instanceof Error ? error.message : String(error),
           originalName: input.originalName,
         },
-        'Failed to enrich episode name, keeping original'
+        'Failed to enrich episode name via LLM, trying template fallback'
       );
-      return defaultResult;
+      return this.templateEnrich(input);
     }
   }
 
@@ -375,6 +375,66 @@ export class EpisodeNameEnrichmentService {
 
     const isValidLength = cleaned.length >= 3 && cleaned.length <= 100;
     return isValidLength ? cleaned : null;
+  }
+
+  private templateEnrich(input: EnrichmentInput): EnrichmentResult {
+    const { originalName, outcome, outcomeType } = input;
+
+    if (!outcome || outcome === originalName) {
+      return {
+        enrichedName: originalName,
+        wasEnriched: false,
+        provider: 'disabled',
+        model: 'template',
+        originalName,
+      };
+    }
+
+    const verbPrefixes = [
+      'Fixed',
+      'Implemented',
+      'Added',
+      'Updated',
+      'Refactored',
+      'Removed',
+      'Created',
+      'Configured',
+      'Resolved',
+      'Debugged',
+      'Tested',
+      'Deployed',
+      'Migrated',
+      'Optimized',
+    ];
+
+    const outcomeStart = outcome.split(' ')[0] ?? '';
+    const startsWithVerb = verbPrefixes.some((v) => outcomeStart.toLowerCase() === v.toLowerCase());
+
+    let enrichedName: string;
+    if (startsWithVerb) {
+      enrichedName = outcome.slice(0, 60);
+    } else if (outcomeType === 'success') {
+      enrichedName = `Completed: ${outcome.slice(0, 50)}`;
+    } else if (outcomeType === 'failure') {
+      enrichedName = `Failed: ${outcome.slice(0, 52)}`;
+    } else if (outcomeType === 'partial') {
+      enrichedName = `Partial: ${outcome.slice(0, 51)}`;
+    } else {
+      enrichedName = outcome.slice(0, 60);
+    }
+
+    logger.debug(
+      { original: originalName, enriched: enrichedName, method: 'template' },
+      'Episode name enriched via template'
+    );
+
+    return {
+      enrichedName,
+      wasEnriched: enrichedName !== originalName,
+      provider: 'disabled',
+      model: 'template',
+      originalName,
+    };
   }
 }
 
