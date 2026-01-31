@@ -49,6 +49,66 @@ Respond with a JSON array:
 Only include messages that were provided. Use the exact index numbers shown.`;
 }
 
+const DECISION_WORDS = new Set([
+  'decided',
+  'chose',
+  'choosing',
+  'selected',
+  'picking',
+  'going with',
+  'settled on',
+  'determined',
+  'concluded',
+  'because',
+  'reason',
+  'therefore',
+  'thus',
+  'approach',
+  'strategy',
+  'solution',
+  'fix',
+  'fixed',
+  'resolved',
+  'implemented',
+  'added',
+  'removed',
+  'updated',
+  'changed',
+  'refactored',
+]);
+
+function heuristicScore(message: { role: string; content: string }): {
+  score: number;
+  category: 'high' | 'medium' | 'low';
+} {
+  let score = 0.3;
+
+  const words = message.content.split(/\s+/).length;
+  if (words > 100) score += 0.2;
+  else if (words > 50) score += 0.1;
+
+  const codeBlocks = (message.content.match(/```/g) || []).length / 2;
+  score += Math.min(codeBlocks * 0.1, 0.2);
+
+  const lowerContent = message.content.toLowerCase();
+  let decisionWordCount = 0;
+  for (const word of DECISION_WORDS) {
+    if (lowerContent.includes(word)) decisionWordCount++;
+  }
+  score += Math.min(decisionWordCount * 0.05, 0.25);
+
+  if (message.role === 'agent' && lowerContent.includes('```')) {
+    score += 0.1;
+  }
+
+  score = Math.min(score, 1.0);
+
+  const category: 'high' | 'medium' | 'low' =
+    score >= 0.7 ? 'high' : score >= 0.4 ? 'medium' : 'low';
+
+  return { score, category };
+}
+
 function parseRelevanceResponse(
   response: string,
   messageCount: number
@@ -114,12 +174,14 @@ export async function runMessageRelevanceScoring(
     durationMs: 0,
   };
 
+  const useHeuristic = !deps.extractionService;
+
   try {
-    if (!deps.extractionService) {
-      logger.debug('Message relevance scoring skipped: extraction service not available');
-      result.executed = false;
-      result.durationMs = Date.now() - startTime;
-      return result;
+    if (useHeuristic) {
+      logger.debug('Using heuristic scoring: extraction service not available');
+      result.source = 'heuristic';
+    } else {
+      result.source = 'llm';
     }
 
     const unscoredMessages = await deps.db
@@ -169,24 +231,35 @@ export async function runMessageRelevanceScoring(
       if (!episode) continue;
 
       try {
-        const prompt = buildRelevanceScoringPrompt(
-          episode.name,
-          episode.outcome,
-          messages.map((m) => ({ id: m.id, role: m.role, content: m.content }))
-        );
+        let scores: Array<{ index: number; score: number; category: 'high' | 'medium' | 'low' }> =
+          [];
 
-        const llmResult = await deps.extractionService.generate({
-          systemPrompt: 'You are a conversation analyst that scores message relevance.',
-          userPrompt: prompt,
-          temperature: 0.3,
-          maxTokens: 1024,
-        });
+        if (useHeuristic) {
+          scores = messages.map((msg, i) => {
+            const { score, category } = heuristicScore({ role: msg.role, content: msg.content });
+            return { index: i + 1, score, category };
+          });
+        } else {
+          const prompt = buildRelevanceScoringPrompt(
+            episode.name,
+            episode.outcome,
+            messages.map((m) => ({ id: m.id, role: m.role, content: m.content }))
+          );
 
-        const responseText = llmResult.texts[0];
-        if (!responseText) continue;
+          const llmResult = await deps.extractionService!.generate({
+            systemPrompt: 'You are a conversation analyst that scores message relevance.',
+            userPrompt: prompt,
+            temperature: 0.3,
+            maxTokens: 1024,
+          });
 
-        const scores = parseRelevanceResponse(responseText, messages.length);
-        if (!scores) continue;
+          const responseText = llmResult.texts[0];
+          if (!responseText) continue;
+
+          const parsedScores = parseRelevanceResponse(responseText, messages.length);
+          if (!parsedScores) continue;
+          scores = parsedScores;
+        }
 
         if (!request.dryRun) {
           for (const score of scores) {

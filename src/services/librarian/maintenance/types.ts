@@ -860,6 +860,7 @@ export interface MessageRelevanceScoringResult {
   messagesScored: number;
   byCategory: { high: number; medium: number; low: number };
   durationMs: number;
+  source?: 'llm' | 'heuristic';
   errors?: string[];
 }
 

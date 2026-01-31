@@ -34,18 +34,28 @@ function createMockExtractionService(response?: string): IExtractionService {
 
 describe('Message Relevance Scoring', () => {
   describe('runMessageRelevanceScoring', () => {
-    it('should skip when extraction service is not available', async () => {
+    it('should use heuristic scoring when extraction service is not available', async () => {
       const { runMessageRelevanceScoring } =
         await import('../../../src/services/librarian/maintenance/message-relevance-scoring.js');
 
+      const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        }),
+      } as unknown as AppDb;
+
       const result = await runMessageRelevanceScoring(
-        { db: {} as AppDb, extractionService: undefined },
+        { db: mockDb, extractionService: undefined },
         { scopeType: 'project', scopeId: 'test-project' },
         { enabled: true, maxMessagesPerRun: 100, thresholds: { high: 0.8, medium: 0.5, low: 0 } }
       );
 
-      expect(result.executed).toBe(false);
-      expect(result.messagesScored).toBe(0);
+      expect(result.executed).toBe(true);
+      expect(result.source).toBe('heuristic');
     });
 
     it('should return correct result structure', async () => {
