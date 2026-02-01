@@ -175,7 +175,7 @@ export class LLMSummarizer {
   private getDefaultModel(provider: LLMProvider): string {
     switch (provider) {
       case 'openai':
-        return 'gpt-4o-mini';
+        return 'unsloth/gpt-oss-20b';
       case 'anthropic':
         return 'claude-3-5-haiku-20241022'; // Fast, cost-effective for summarization
       case 'ollama':

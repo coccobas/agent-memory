@@ -51,8 +51,8 @@ export const extractionSection: ConfigSectionMeta = {
     },
     openaiModel: {
       envKey: 'AGENT_MEMORY_EXTRACTION_OPENAI_MODEL',
-      defaultValue: 'openai/gpt-oss-20b',
-      description: 'Model to use for extraction (defaults to gpt-oss-20b via LM Studio).',
+      defaultValue: 'unsloth/gpt-oss-20b',
+      description: 'Model to use for extraction (defaults to unsloth/gpt-oss-20b via LM Studio).',
       schema: z.string(),
     },
     openaiJsonMode: {
