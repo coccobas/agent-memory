@@ -11,14 +11,28 @@ import type { HierarchyLevel, LevelPromptConfig, PromptVariables } from './types
 // LEVEL 0: CHUNK - Summarize Individual Entries
 // =============================================================================
 
-const LEVEL_0_SYSTEM_PROMPT = `You are a precision memory summarizer. Your task is to create concise summaries of individual memory entries while preserving all critical technical details and context.
+const LEVEL_0_SYSTEM_PROMPT = `Summarize individual memory entries. Preserve technical precision.
 
-Guidelines:
-- Preserve exact technical terms, version numbers, and identifiers
-- Keep action items and decisions explicit
-- Maintain code snippets or commands if present
-- Extract 2-5 key terms that represent core concepts
-- Be precise but concise (3-5 sentences maximum)`;
+RULES:
+- Keep exact terms, versions, identifiers
+- 3-5 sentences maximum
+- Extract 2-5 key terms
+- Preserve code snippets if present
+
+EXAMPLE:
+
+Input:
+Type: knowledge
+Title: Database Migration Strategy
+Content: "We migrated from MySQL 5.7 to PostgreSQL 14 in Q3 2024. Used pgloader for the migration. Key challenge was converting stored procedures to PL/pgSQL."
+
+Output:
+{
+  "title": "MySQL to PostgreSQL 14 Migration",
+  "content": "Migrated from MySQL 5.7 to PostgreSQL 14 in Q3 2024 using pgloader. Main challenge was converting stored procedures to PL/pgSQL syntax.",
+  "keyTerms": ["postgresql-14", "mysql", "pgloader", "migration"],
+  "confidence": 0.95
+}`;
 
 const LEVEL_0_USER_TEMPLATE = `Summarize the following memory entry:
 
@@ -57,15 +71,28 @@ const LEVEL_0_CONFIG: LevelPromptConfig = {
 // LEVEL 1: TOPIC - Summarize Related Topics into Themes
 // =============================================================================
 
-const LEVEL_1_SYSTEM_PROMPT = `You are a thematic memory organizer. Your task is to identify common themes across related memory entries and create a coherent thematic summary.
+const LEVEL_1_SYSTEM_PROMPT = `Synthesize related entries into thematic summaries.
 
-Guidelines:
-- Identify the common thread connecting the entries
-- Synthesize patterns and recurring concepts
-- Preserve critical technical decisions and rationale
-- Extract 5-8 key terms representing the theme
-- Create a narrative that shows relationships between entries
-- Length: 1-2 paragraphs`;
+RULES:
+- Identify the common thread
+- Show relationships between entries
+- 1-2 paragraphs
+- Extract 5-8 key terms
+
+EXAMPLE:
+
+Input (3 entries about API design):
+1. "REST endpoints use /api/v1 prefix"
+2. "All responses include request_id header"
+3. "Error responses follow RFC 7807 format"
+
+Output:
+{
+  "title": "API Design Standards",
+  "content": "The API follows REST conventions with a /api/v1 prefix for all endpoints. Response handling is standardized: every response includes a request_id header for tracing, and errors conform to RFC 7807 Problem Details format for consistent client handling.",
+  "keyTerms": ["rest", "api-v1", "request-id", "rfc-7807", "error-handling"],
+  "confidence": 0.9
+}`;
 
 const LEVEL_1_USER_TEMPLATE = `Analyze and summarize the following related memory entries into a thematic summary:
 
@@ -113,16 +140,27 @@ const LEVEL_1_CONFIG: LevelPromptConfig = {
 // LEVEL 2: DOMAIN - Summarize Themes into Domain Knowledge
 // =============================================================================
 
-const LEVEL_2_SYSTEM_PROMPT = `You are a domain knowledge architect. Your task is to synthesize multiple themes into comprehensive domain-level knowledge that captures architectural decisions, patterns, and technical direction.
+const LEVEL_2_SYSTEM_PROMPT = `Synthesize themes into domain-level architectural knowledge.
 
-Guidelines:
-- Create a high-level overview of the domain area
-- Highlight architectural patterns and design decisions
-- Show how different themes interconnect
-- Extract 8-12 key terms representing domain concepts
-- Include actionable insights and principles
-- Identify potential areas of concern or optimization
-- Length: 2-3 paragraphs`;
+RULES:
+- High-level overview of the domain
+- Highlight architectural patterns and decisions
+- Show how themes interconnect
+- 2-3 paragraphs
+- Extract 8-12 key terms
+- Include actionable insights
+
+EXAMPLE:
+
+Input (themes: "API Design Standards", "Authentication Flow", "Rate Limiting"):
+
+Output:
+{
+  "title": "Backend API Architecture",
+  "content": "The backend follows a RESTful architecture with versioned endpoints (/api/v1) and standardized error handling via RFC 7807. Authentication uses JWT tokens with a 15-minute access/7-day refresh pattern, validated through middleware on all protected routes.\\n\\nRate limiting is implemented at the gateway level using a token bucket algorithm (100 req/min for authenticated users, 20 req/min for anonymous). All three systems integrate through consistent request_id propagation for end-to-end tracing.",
+  "keyTerms": ["rest", "jwt", "rate-limiting", "token-bucket", "middleware", "api-gateway", "rfc-7807", "request-tracing"],
+  "confidence": 0.85
+}`;
 
 const LEVEL_2_USER_TEMPLATE = `Synthesize the following themes into a comprehensive domain summary:
 
@@ -167,17 +205,31 @@ const LEVEL_2_CONFIG: LevelPromptConfig = {
 // LEVEL 3: GLOBAL - Create Executive Summary
 // =============================================================================
 
-const LEVEL_3_SYSTEM_PROMPT = `You are an executive knowledge synthesizer. Your task is to create a high-level strategic summary that captures the most critical insights across all domain areas.
+const LEVEL_3_SYSTEM_PROMPT = `Create executive-level strategic summary across all domains.
 
-Guidelines:
-- Provide a strategic overview of the entire project/system
-- Highlight key architectural decisions and their rationale
-- Identify cross-domain patterns and principles
-- Surface critical risks or technical debt
-- Extract 10-15 key terms representing the entire knowledge base
-- Focus on actionable insights for decision-making
-- Length: 3-4 paragraphs
-- Structure: Overview, Key Decisions, Patterns & Principles, Areas of Focus`;
+RULES:
+- Strategic overview of entire system
+- Key architectural decisions with rationale
+- Cross-domain patterns
+- Surface risks and technical debt
+- 3-4 paragraphs with structure:
+  1. Overview
+  2. Key Decisions
+  3. Patterns & Principles
+  4. Priority Areas
+- Extract 10-15 key terms
+
+EXAMPLE:
+
+Input (domains: "Backend API", "Data Layer", "Frontend Architecture"):
+
+Output:
+{
+  "title": "System Architecture Overview",
+  "content": "**Overview**: The system follows a modern three-tier architecture with a React frontend, Node.js API layer, and PostgreSQL persistence. Key design principles include API-first development, infrastructure-as-code, and comprehensive observability.\\n\\n**Key Decisions**: JWT-based authentication was chosen over sessions for stateless scaling. PostgreSQL was selected for ACID compliance; Redis handles caching and rate limiting. The frontend uses React Query for server state management.\\n\\n**Patterns**: Consistent patterns include repository pattern for data access, middleware chains for cross-cutting concerns, and feature-flag driven releases. All services emit structured logs with correlation IDs.\\n\\n**Priority Areas**: Technical debt exists in the legacy user service (needs TypeScript migration). Rate limiting should be enhanced with per-endpoint configuration. Consider adding read replicas as query volume grows.",
+  "keyTerms": ["three-tier", "jwt", "postgresql", "redis", "react-query", "repository-pattern", "feature-flags", "observability", "correlation-id", "technical-debt"],
+  "confidence": 0.8
+}`;
 
 const LEVEL_3_USER_TEMPLATE = `Create an executive summary from the following domain summaries:
 

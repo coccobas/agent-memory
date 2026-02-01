@@ -110,12 +110,12 @@ describe('LEVEL_PROMPTS', () => {
     expect(LEVEL_PROMPTS[0].systemPrompt).toContain('precision');
 
     // Level 1 should focus on themes
-    expect(LEVEL_PROMPTS[1].systemPrompt).toContain('theme');
+    expect(LEVEL_PROMPTS[1].systemPrompt).toContain('thematic');
     expect(LEVEL_PROMPTS[1].systemPrompt).toContain('related');
 
     // Level 2 should focus on domain knowledge
     expect(LEVEL_PROMPTS[2].systemPrompt).toContain('domain');
-    expect(LEVEL_PROMPTS[2].systemPrompt).toContain('architect');
+    expect(LEVEL_PROMPTS[2].systemPrompt).toContain('architectural');
 
     // Level 3 should focus on executive summary
     expect(LEVEL_PROMPTS[3].systemPrompt).toContain('executive');
@@ -162,8 +162,8 @@ describe('buildPrompts - Level 0 (chunk)', () => {
 
     const { systemPrompt, userPrompt } = buildPrompts(0, variables);
 
-    expect(systemPrompt).toContain('precision memory summarizer');
-    expect(systemPrompt).toContain('individual memory entries');
+    expect(systemPrompt).toContain('Summarize individual memory entries');
+    expect(systemPrompt).toContain('Preserve technical precision');
     // Note: Level 0 currently doesn't replace items.0.X placeholders
     // This is a known limitation - templates contain {{items.0.title}}, etc.
     expect(userPrompt).toContain('{{items.0.type}}');
@@ -252,8 +252,8 @@ describe('buildPrompts - Level 1 (topic)', () => {
 
     const { systemPrompt, userPrompt } = buildPrompts(1, variables);
 
-    expect(systemPrompt).toContain('thematic memory organizer');
-    expect(systemPrompt).toContain('common themes');
+    expect(systemPrompt).toContain('Synthesize related entries');
+    expect(systemPrompt).toContain('thematic summaries');
     expect(userPrompt).toContain('2 total');
   });
 
@@ -342,8 +342,8 @@ describe('buildPrompts - Level 2 (domain)', () => {
 
     const { systemPrompt, userPrompt } = buildPrompts(2, variables);
 
-    expect(systemPrompt).toContain('domain knowledge architect');
-    expect(systemPrompt).toContain('architectural decisions');
+    expect(systemPrompt).toContain('domain-level architectural knowledge');
+    expect(systemPrompt).toContain('architectural patterns');
     expect(userPrompt).toContain('Themes (2 total)');
   });
 
@@ -405,8 +405,8 @@ describe('buildPrompts - Level 3 (global)', () => {
 
     const { systemPrompt, userPrompt } = buildPrompts(3, variables);
 
-    expect(systemPrompt).toContain('executive knowledge synthesizer');
-    expect(systemPrompt).toContain('strategic overview');
+    expect(systemPrompt).toContain('executive-level strategic summary');
+    expect(systemPrompt).toContain('Strategic overview');
     expect(userPrompt).toContain('Domain Summaries (3 areas)');
   });
 
