@@ -19,6 +19,7 @@ import {
   parseSelectionTarget,
   type ReviewCandidate,
 } from './utils.js';
+import { isGarbageExperience } from './quality-filter.js';
 
 const AM_BIN = process.env.AGENT_MEMORY_BIN ?? 'agent-memory';
 const AGENT_ID = process.env.AGENT_MEMORY_AGENT_ID ?? 'opencode';
@@ -265,6 +266,11 @@ export const AgentMemoryPlugin: Plugin = async ({ client, directory, worktree })
     outcome: string,
     outcomeType: 'success' | 'partial' | 'failure' = 'success'
   ) {
+    // Quality filter - silently drop garbage experiences
+    if (isGarbageExperience(title, scenario, outcome)) {
+      return; // Silent drop - no logging, no toast
+    }
+
     try {
       await mcpClient.callTool('memory_experience', {
         action: 'learn',
