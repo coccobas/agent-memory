@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from 'react';
 import {
   type ColumnDef,
   flexRender,
@@ -8,11 +8,11 @@ import {
   getSortedRowModel,
   useReactTable,
   type SortingState,
-} from "@tanstack/react-table";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ExportButton } from "@/components/ui/export-button";
+} from '@tanstack/react-table';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[];
@@ -22,6 +22,7 @@ interface DataTableProps<TData> {
   emptyMessage?: string;
   onRowClick?: (row: TData) => void;
   exportFilename?: string;
+  defaultSorting?: SortingState;
 }
 
 export function DataTable<TData>({
@@ -29,14 +30,13 @@ export function DataTable<TData>({
   data,
   isLoading,
   error,
-  emptyMessage = "No data found",
+  emptyMessage = 'No data found',
   onRowClick,
   exportFilename,
+  defaultSorting = [{ id: 'createdAt', desc: true }],
 }: DataTableProps<TData>) {
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "createdAt", desc: true },
-  ]);
-  const [globalFilter, setGlobalFilter] = React.useState("");
+  const [sorting, setSorting] = React.useState<SortingState>(defaultSorting);
+  const [globalFilter, setGlobalFilter] = React.useState('');
 
   const table = useReactTable({
     data,
@@ -65,18 +65,17 @@ export function DataTable<TData>({
 
   // Error state
   if (error) {
-    const isAuthError =
-      error.message?.includes("Unauthorized") || error.message?.includes("401");
+    const isAuthError = error.message?.includes('Unauthorized') || error.message?.includes('401');
     const isConnectionError =
-      error.message?.includes("fetch") || error.message?.includes("network");
+      error.message?.includes('fetch') || error.message?.includes('network');
 
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-destructive font-medium">
           {isAuthError
-            ? "Authentication required. Check API key."
+            ? 'Authentication required. Check API key.'
             : isConnectionError
-              ? "Cannot connect to API. Is the server running?"
+              ? 'Cannot connect to API. Is the server running?'
               : error.message}
         </p>
       </div>
@@ -96,9 +95,7 @@ export function DataTable<TData>({
   }
 
   // Get filtered data for export (respects current filters and sorting)
-  const filteredData = table
-    .getFilteredRowModel()
-    .rows.map((row) => row.original);
+  const filteredData = table.getFilteredRowModel().rows.map((row) => row.original);
 
   return (
     <div className="space-y-4">
@@ -133,22 +130,16 @@ export function DataTable<TData>({
                     {header.isPlaceholder ? null : (
                       <div
                         className={cn(
-                          "flex items-center gap-2",
+                          'flex items-center gap-2',
                           header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-foreground",
+                            'cursor-pointer select-none hover:text-foreground'
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                       >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
+                        {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
                           <ArrowUpDown
-                            className={cn(
-                              "h-4 w-4",
-                              header.column.getIsSorted() && "text-primary",
-                            )}
+                            className={cn('h-4 w-4', header.column.getIsSorted() && 'text-primary')}
                           />
                         )}
                       </div>
@@ -163,8 +154,8 @@ export function DataTable<TData>({
               <tr
                 key={row.id}
                 className={cn(
-                  "border-t border-border hover:bg-muted/50 transition-colors",
-                  onRowClick && "cursor-pointer",
+                  'border-t border-border hover:bg-muted/50 transition-colors',
+                  onRowClick && 'cursor-pointer'
                 )}
                 onClick={() => onRowClick?.(row.original)}
               >
@@ -198,8 +189,7 @@ export function DataTable<TData>({
 
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
-            {table.getPageCount()}
+            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
           </span>
           <div className="flex items-center gap-1">
             <Button

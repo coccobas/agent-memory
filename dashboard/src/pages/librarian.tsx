@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
-import { type ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
-import { Modal } from "@/components/ui/modal";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   useLibrarianStatus,
   useLibrarianJobs,
@@ -14,40 +15,40 @@ import {
   useSkipRecommendation,
   useRunMaintenance,
   useJobStatus,
-} from "@/api/hooks";
-import type { LibrarianJob, LibrarianRecommendation } from "@/api/types";
+} from '@/api/hooks';
+import type { LibrarianJob, LibrarianRecommendation } from '@/api/types';
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 const jobStatusColors: Record<
-  LibrarianJob["status"],
-  "default" | "secondary" | "destructive" | "warning"
+  LibrarianJob['status'],
+  'default' | 'secondary' | 'destructive' | 'warning'
 > = {
-  pending: "secondary",
-  running: "warning",
-  completed: "default",
-  failed: "destructive",
+  pending: 'secondary',
+  running: 'warning',
+  completed: 'default',
+  failed: 'destructive',
 };
 
 const recommendationStatusColors: Record<
-  LibrarianRecommendation["status"],
-  "default" | "secondary" | "destructive" | "warning"
+  LibrarianRecommendation['status'],
+  'default' | 'secondary' | 'destructive' | 'warning'
 > = {
-  pending: "warning",
-  approved: "default",
-  rejected: "destructive",
-  skipped: "secondary",
+  pending: 'warning',
+  approved: 'default',
+  rejected: 'destructive',
+  skipped: 'secondary',
 };
 
-type TabType = "status" | "jobs" | "recommendations";
+type TabType = 'status' | 'jobs' | 'recommendations';
 
 function StatusTab() {
   const { data: status, isLoading, error } = useLibrarianStatus();
@@ -58,11 +59,7 @@ function StatusTab() {
   }
 
   if (error) {
-    return (
-      <div className="text-destructive">
-        Error loading status: {error.message}
-      </div>
-    );
+    return <div className="text-destructive">Error loading status: {error.message}</div>;
   }
 
   if (!status) {
@@ -79,8 +76,8 @@ function StatusTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge variant={status.service.enabled ? "default" : "secondary"}>
-              {status.service.enabled ? "Enabled" : "Disabled"}
+            <Badge variant={status.service.enabled ? 'default' : 'secondary'}>
+              {status.service.enabled ? 'Enabled' : 'Disabled'}
             </Badge>
           </CardContent>
         </Card>
@@ -92,26 +89,20 @@ function StatusTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
-              {status.service.pendingRecommendations}
-            </div>
+            <div className="text-3xl font-bold">{status.service.pendingRecommendations}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Scheduler
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Scheduler</CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge variant={status.scheduler.running ? "default" : "secondary"}>
-              {status.scheduler.running ? "Running" : "Stopped"}
+            <Badge variant={status.scheduler.running ? 'default' : 'secondary'}>
+              {status.scheduler.running ? 'Running' : 'Stopped'}
             </Badge>
             {status.service.config.schedule && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {status.service.config.schedule}
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">{status.service.config.schedule}</p>
             )}
           </CardContent>
         </Card>
@@ -126,26 +117,16 @@ function StatusTab() {
               disabled={runMaintenance.isPending}
               className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
             >
-              {runMaintenance.isPending ? "Running..." : "Run Maintenance"}
+              {runMaintenance.isPending ? 'Running...' : 'Run Maintenance'}
             </button>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">
-                Session End Trigger:
-              </span>
-              <Badge
-                variant={
-                  status.service.config.triggerOnSessionEnd
-                    ? "default"
-                    : "secondary"
-                }
-              >
-                {status.service.config.triggerOnSessionEnd
-                  ? "Enabled"
-                  : "Disabled"}
+              <span className="text-muted-foreground">Session End Trigger:</span>
+              <Badge variant={status.service.config.triggerOnSessionEnd ? 'default' : 'secondary'}>
+                {status.service.config.triggerOnSessionEnd ? 'Enabled' : 'Disabled'}
               </Badge>
             </div>
 
@@ -163,7 +144,7 @@ function StatusTab() {
 }
 
 function formatDuration(ms?: number): string {
-  if (!ms) return "-";
+  if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -172,15 +153,12 @@ function formatDuration(ms?: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-const taskStatusColors: Record<
-  string,
-  "default" | "secondary" | "destructive" | "warning"
-> = {
-  pending: "secondary",
-  running: "warning",
-  completed: "default",
-  failed: "destructive",
-  skipped: "secondary",
+const taskStatusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'warning'> = {
+  pending: 'secondary',
+  running: 'warning',
+  completed: 'default',
+  failed: 'destructive',
+  skipped: 'secondary',
 };
 
 interface JobDetailProps {
@@ -189,23 +167,19 @@ interface JobDetailProps {
 
 function JobDetail({ job }: JobDetailProps) {
   const { data: liveJob } = useJobStatus(
-    job.status === "running" || job.status === "pending" ? job.id : null,
+    job.status === 'running' || job.status === 'pending' ? job.id : null
   );
 
   const currentJob = liveJob ?? job;
-  const isRunning = currentJob.status === "running";
+  const isRunning = currentJob.status === 'running';
   const tasks = currentJob.tasks;
 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={jobStatusColors[currentJob.status]}>
-            {currentJob.status}
-          </Badge>
-          {currentJob.scopeType && (
-            <Badge variant="secondary">{currentJob.scopeType}</Badge>
-          )}
+          <Badge variant={jobStatusColors[currentJob.status]}>{currentJob.status}</Badge>
+          {currentJob.scopeType && <Badge variant="secondary">{currentJob.scopeType}</Badge>}
           {isRunning && (
             <span className="flex items-center gap-1 text-sm text-warning">
               <span className="animate-pulse">●</span>
@@ -239,9 +213,9 @@ function JobDetail({ job }: JobDetailProps) {
         <h3 className="text-sm font-medium mb-3">Tasks</h3>
         <div className="space-y-2">
           {tasks.map((task, index) => {
-            const isTaskObject = typeof task === "object";
+            const isTaskObject = typeof task === 'object';
             const taskName = isTaskObject ? task.name : task;
-            const taskStatus = isTaskObject ? task.status : "pending";
+            const taskStatus = isTaskObject ? task.status : 'pending';
             const taskResult = isTaskObject ? task.result : undefined;
             const taskError = isTaskObject ? task.error : undefined;
             const taskDuration = isTaskObject ? task.durationMs : undefined;
@@ -251,9 +225,7 @@ function JobDetail({ job }: JobDetailProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm">{taskName}</span>
-                    <Badge
-                      variant={taskStatusColors[taskStatus] ?? "secondary"}
-                    >
+                    <Badge variant={taskStatusColors[taskStatus] ?? 'secondary'}>
                       {taskStatus}
                     </Badge>
                   </div>
@@ -264,9 +236,7 @@ function JobDetail({ job }: JobDetailProps) {
                   )}
                 </div>
 
-                {taskError && (
-                  <div className="text-sm text-destructive">{taskError}</div>
-                )}
+                {taskError && <div className="text-sm text-destructive">{taskError}</div>}
 
                 {taskResult && Object.keys(taskResult).length > 0 && (
                   <div className="text-xs text-muted-foreground">
@@ -333,9 +303,7 @@ function JobsTab() {
   const { data, isLoading, error, refetch } = useLibrarianJobs();
   const [selectedJob, setSelectedJob] = useState<LibrarianJob | null>(null);
 
-  const hasRunningJobs = data?.some(
-    (job) => job.status === "running" || job.status === "pending",
-  );
+  const hasRunningJobs = data?.some((job) => job.status === 'running' || job.status === 'pending');
 
   useEffect(() => {
     if (!hasRunningJobs) return;
@@ -350,10 +318,10 @@ function JobsTab() {
   const columns: ColumnDef<LibrarianJob, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "id",
-        header: "ID",
+        accessorKey: 'id',
+        header: 'ID',
         cell: ({ row }) => {
-          const id = row.getValue("id") as string;
+          const id = row.getValue('id') as string;
           return (
             <span className="font-mono text-xs" title={id}>
               {id.slice(0, 12)}
@@ -362,24 +330,22 @@ function JobsTab() {
         },
       },
       {
-        accessorKey: "status",
-        header: "Status",
+        accessorKey: 'status',
+        header: 'Status',
         cell: ({ row }) => {
-          const status = row.getValue("status") as LibrarianJob["status"];
-          const isRunning = status === "running";
+          const status = row.getValue('status') as LibrarianJob['status'];
+          const isRunning = status === 'running';
           return (
             <div className="flex items-center gap-1">
-              {isRunning && (
-                <span className="animate-pulse text-warning">●</span>
-              )}
+              {isRunning && <span className="animate-pulse text-warning">●</span>}
               <Badge variant={jobStatusColors[status]}>{status}</Badge>
             </div>
           );
         },
       },
       {
-        accessorKey: "progress",
-        header: "Progress",
+        accessorKey: 'progress',
+        header: 'Progress',
         cell: ({ row }) => {
           const progress = row.original.progress;
           const currentTask = row.original.currentTask;
@@ -388,9 +354,7 @@ function JobsTab() {
               <div className="text-sm">
                 <div>{progress}</div>
                 {currentTask && (
-                  <div className="text-xs text-muted-foreground font-mono">
-                    {currentTask}
-                  </div>
+                  <div className="text-xs text-muted-foreground font-mono">{currentTask}</div>
                 )}
               </div>
             );
@@ -399,18 +363,16 @@ function JobsTab() {
         },
       },
       {
-        accessorKey: "tasks",
-        header: "Tasks",
+        accessorKey: 'tasks',
+        header: 'Tasks',
         cell: ({ row }) => {
           const tasks = row.original.tasks;
           if (!tasks?.length) {
             return <span className="text-muted-foreground">-</span>;
           }
           const completed =
-            typeof tasks[0] === "object"
-              ? tasks.filter(
-                  (t) => typeof t === "object" && t.status === "completed",
-                ).length
+            typeof tasks[0] === 'object'
+              ? tasks.filter((t) => typeof t === 'object' && t.status === 'completed').length
               : 0;
           return (
             <span className="text-sm">
@@ -420,10 +382,10 @@ function JobsTab() {
         },
       },
       {
-        accessorKey: "startedAt",
-        header: "Started",
+        accessorKey: 'startedAt',
+        header: 'Started',
         cell: ({ row }) => {
-          const startedAt = row.getValue("startedAt") as string | undefined;
+          const startedAt = row.getValue('startedAt') as string | undefined;
           return startedAt ? (
             formatDate(startedAt)
           ) : (
@@ -432,8 +394,8 @@ function JobsTab() {
         },
       },
       {
-        accessorKey: "durationMs",
-        header: "Duration",
+        accessorKey: 'durationMs',
+        header: 'Duration',
         cell: ({ row }) => {
           const durationMs = row.original.durationMs;
           const startedAt = row.original.startedAt;
@@ -442,19 +404,15 @@ function JobsTab() {
           if (durationMs) {
             return formatDuration(durationMs);
           }
-          if (startedAt && status === "running") {
+          if (startedAt && status === 'running') {
             const elapsed = Date.now() - new Date(startedAt).getTime();
-            return (
-              <span className="text-muted-foreground">
-                {formatDuration(elapsed)}
-              </span>
-            );
+            return <span className="text-muted-foreground">{formatDuration(elapsed)}</span>;
           }
           return <span className="text-muted-foreground">-</span>;
         },
       },
     ],
-    [],
+    []
   );
 
   return (
@@ -473,6 +431,7 @@ function JobsTab() {
         error={error}
         emptyMessage="No maintenance jobs found"
         onRowClick={setSelectedJob}
+        defaultSorting={[{ id: 'startedAt', desc: true }]}
       />
 
       <Modal
@@ -492,16 +451,13 @@ interface RecommendationDetailProps {
   onClose: () => void;
 }
 
-function RecommendationDetail({
-  recommendation,
-  onClose,
-}: RecommendationDetailProps) {
+function RecommendationDetail({ recommendation, onClose }: RecommendationDetailProps) {
   const { data: detail } = useLibrarianRecommendation(recommendation.id);
   const approve = useApproveRecommendation();
   const reject = useRejectRecommendation();
   const skip = useSkipRecommendation();
 
-  const isPending = recommendation.status === "pending";
+  const isPending = recommendation.status === 'pending';
   const isActioning = approve.isPending || reject.isPending || skip.isPending;
 
   const handleApprove = () => {
@@ -558,11 +514,7 @@ function RecommendationDetail({
             {detail.sourceExperiences.map((exp) => (
               <div key={exp.id} className="bg-muted/50 rounded-md p-3 text-sm">
                 <div className="font-medium">{exp.title}</div>
-                {exp.outcome && (
-                  <div className="text-muted-foreground mt-1">
-                    {exp.outcome}
-                  </div>
-                )}
+                {exp.outcome && <div className="text-muted-foreground mt-1">{exp.outcome}</div>}
               </div>
             ))}
           </div>
@@ -611,62 +563,53 @@ function RecommendationDetail({
 
 function RecommendationsTab() {
   const { data, isLoading, error } = useLibrarianRecommendations();
-  const [selected, setSelected] = useState<LibrarianRecommendation | null>(
-    null,
-  );
+  const [selected, setSelected] = useState<LibrarianRecommendation | null>(null);
 
   const columns: ColumnDef<LibrarianRecommendation, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "title",
-        header: "Title",
-        cell: ({ row }) => (
-          <span className="font-medium">{row.getValue("title")}</span>
-        ),
+        accessorKey: 'title',
+        header: 'Title',
+        cell: ({ row }) => <span className="font-medium">{row.getValue('title')}</span>,
       },
       {
-        accessorKey: "type",
-        header: "Type",
+        accessorKey: 'type',
+        header: 'Type',
         cell: ({ row }) => {
-          const type = row.getValue("type") as LibrarianRecommendation["type"];
+          const type = row.getValue('type') as LibrarianRecommendation['type'];
           return <Badge variant="secondary">{type}</Badge>;
         },
       },
       {
-        accessorKey: "status",
-        header: "Status",
+        accessorKey: 'status',
+        header: 'Status',
         cell: ({ row }) => {
-          const status = row.getValue(
-            "status",
-          ) as LibrarianRecommendation["status"];
-          return (
-            <Badge variant={recommendationStatusColors[status]}>{status}</Badge>
-          );
+          const status = row.getValue('status') as LibrarianRecommendation['status'];
+          return <Badge variant={recommendationStatusColors[status]}>{status}</Badge>;
         },
       },
       {
-        accessorKey: "confidence",
-        header: "Confidence",
+        accessorKey: 'confidence',
+        header: 'Confidence',
         cell: ({ row }) => {
-          const confidence = row.getValue("confidence") as number;
+          const confidence = row.getValue('confidence') as number;
           const pct = Math.round(confidence * 100);
-          const variant =
-            pct >= 80 ? "default" : pct >= 60 ? "secondary" : "warning";
+          const variant = pct >= 80 ? 'default' : pct >= 60 ? 'secondary' : 'warning';
           return <Badge variant={variant}>{pct}%</Badge>;
         },
       },
       {
-        accessorKey: "patternCount",
-        header: "Patterns",
-        cell: ({ row }) => row.getValue("patternCount"),
+        accessorKey: 'patternCount',
+        header: 'Patterns',
+        cell: ({ row }) => row.getValue('patternCount'),
       },
       {
-        accessorKey: "createdAt",
-        header: "Created",
-        cell: ({ row }) => formatDate(row.getValue("createdAt")),
+        accessorKey: 'createdAt',
+        header: 'Created',
+        cell: ({ row }) => formatDate(row.getValue('createdAt')),
       },
     ],
-    [],
+    []
   );
 
   return (
@@ -683,14 +626,11 @@ function RecommendationsTab() {
       <Modal
         isOpen={selected !== null}
         onClose={() => setSelected(null)}
-        title={selected?.title ?? "Recommendation Details"}
+        title={selected?.title ?? 'Recommendation Details'}
         size="2xl"
       >
         {selected && (
-          <RecommendationDetail
-            recommendation={selected}
-            onClose={() => setSelected(null)}
-          />
+          <RecommendationDetail recommendation={selected} onClose={() => setSelected(null)} />
         )}
       </Modal>
     </>
@@ -698,13 +638,25 @@ function RecommendationsTab() {
 }
 
 export function LibrarianPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("status");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const tabs: { id: TabType; label: string }[] = [
-    { id: "status", label: "Status" },
-    { id: "jobs", label: "Jobs" },
-    { id: "recommendations", label: "Recommendations" },
+    { id: 'status', label: 'Status' },
+    { id: 'jobs', label: 'Jobs' },
+    { id: 'recommendations', label: 'Recommendations' },
   ];
+
+  // Get active tab from URL, default to 'status'
+  const tabParam = searchParams.get('tab');
+  const activeTab: TabType =
+    tabParam && tabs.some((t) => t.id === tabParam) ? (tabParam as TabType) : 'status';
+
+  const setActiveTab = useCallback(
+    (tab: TabType) => {
+      setSearchParams({ tab });
+    },
+    [setSearchParams]
+  );
 
   return (
     <div className="space-y-6">
@@ -723,8 +675,8 @@ export function LibrarianPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab.label}
@@ -733,9 +685,9 @@ export function LibrarianPage() {
         </nav>
       </div>
 
-      {activeTab === "status" && <StatusTab />}
-      {activeTab === "jobs" && <JobsTab />}
-      {activeTab === "recommendations" && <RecommendationsTab />}
+      {activeTab === 'status' && <StatusTab />}
+      {activeTab === 'jobs' && <JobsTab />}
+      {activeTab === 'recommendations' && <RecommendationsTab />}
     </div>
   );
 }
