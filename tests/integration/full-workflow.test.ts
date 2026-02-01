@@ -7,7 +7,7 @@
  * 3. Cross-scope inheritance (global → org → project → session)
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import Database from 'better-sqlite3';
@@ -694,7 +694,10 @@ describe('Full Workflow Integration Tests', () => {
   });
 
   beforeEach(() => {
-    const dbPath = resolve(dataDir, `workflow-test-${Date.now()}.db`);
+    const dbPath = resolve(
+      dataDir,
+      `workflow-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
+    );
     sqlite = new Database(dbPath);
     sqlite.exec(FULL_SCHEMA);
     db = drizzle(sqlite);
@@ -714,7 +717,7 @@ describe('Full Workflow Integration Tests', () => {
     classificationService = new ClassificationService(db as never, null, config);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     if (sqlite) {
       sqlite.close();
     }

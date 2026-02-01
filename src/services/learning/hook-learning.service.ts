@@ -2100,6 +2100,11 @@ export class HookLearningService {
 
     return { toolFailureCount, errorCount, experiencesCreated };
   }
+
+  getKnowledgeStats(sessionId: string): { knowledgeCount: number } {
+    const knowledgeCount = this.knowledgeCount.get(sessionId) ?? 0;
+    return { knowledgeCount };
+  }
 }
 
 // =============================================================================

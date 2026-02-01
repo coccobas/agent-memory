@@ -390,7 +390,10 @@ describe('MCP Tool Call End-to-End Tests', () => {
   });
 
   beforeEach(() => {
-    const dbPath = resolve(dataDir, `mcp-test-${Date.now()}.db`);
+    const dbPath = resolve(
+      dataDir,
+      `mcp-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
+    );
     sqlite = new Database(dbPath);
     sqlite.exec(FULL_SCHEMA);
     db = drizzle(sqlite);
@@ -410,7 +413,7 @@ describe('MCP Tool Call End-to-End Tests', () => {
     classificationService = new ClassificationService(db as never, null, config);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     if (sqlite) {
       sqlite.close();
     }
