@@ -33,11 +33,17 @@ const MAX_CONTEXT_LENGTH = 100000; // 100KB limit
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB max response
 
 /**
- * Validate model name to prevent injection attacks
+ * Validate model name to prevent injection attacks.
+ * Allows: alphanumeric, hyphens, underscores, colons (llama:7b), dots, and
+ * forward slashes (for LM Studio models like unsloth/gpt-oss-20b).
+ * Disallows: path traversal (..), backslashes, shell metacharacters.
  */
 function isValidModelName(modelName: string): boolean {
-  const validPattern = /^[a-zA-Z0-9._:-]+$/;
-  return validPattern.test(modelName) && modelName.length <= 100;
+  // Allow namespace/model format for LM Studio (e.g., unsloth/gpt-oss-20b)
+  const validPattern = /^[a-zA-Z0-9._:/-]+$/;
+  // Block path traversal attempts
+  const hasPathTraversal = modelName.includes('..') || modelName.includes('\\');
+  return validPattern.test(modelName) && modelName.length <= 100 && !hasPathTraversal;
 }
 
 /**
@@ -175,7 +181,7 @@ export class LLMSummarizer {
   private getDefaultModel(provider: LLMProvider): string {
     switch (provider) {
       case 'openai':
-        return 'unsloth/gpt-oss-20b';
+        return 'gpt-4o-mini';
       case 'anthropic':
         return 'claude-3-5-haiku-20241022'; // Fast, cost-effective for summarization
       case 'ollama':

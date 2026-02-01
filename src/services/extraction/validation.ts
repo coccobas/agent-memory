@@ -96,11 +96,15 @@ export function validateExternalUrl(urlString: string, allowPrivate: boolean = f
 
 /**
  * Validate model name to prevent injection attacks.
+ * Allows: alphanumeric, hyphens, underscores, colons (llama:7b), dots, and
+ * forward slashes (for LM Studio models like unsloth/gpt-oss-20b).
+ * Disallows: path traversal (..), backslashes, shell metacharacters.
  */
 export function isValidModelName(modelName: string): boolean {
-  // Allow alphanumeric, hyphens, underscores, colons (for tags like llama:7b), and dots
-  const validPattern = /^[a-zA-Z0-9._:-]+$/;
-  return validPattern.test(modelName) && modelName.length <= 100;
+  // Allow namespace/model format for LM Studio (e.g., unsloth/gpt-oss-20b)
+  const validPattern = /^[a-zA-Z0-9._:/-]+$/;
+  const hasPathTraversal = modelName.includes('..') || modelName.includes('\\');
+  return validPattern.test(modelName) && modelName.length <= 100 && !hasPathTraversal;
 }
 
 /**
