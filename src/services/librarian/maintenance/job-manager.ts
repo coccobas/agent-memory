@@ -323,9 +323,24 @@ export class MaintenanceJobManager extends EventEmitter {
   async listJobsWithFallback(status?: MaintenanceJobStatus): Promise<MaintenanceJob[]> {
     if (this.repository) {
       try {
-        const records = await this.repository.list(status ? { status } : {}, { limit: 100 });
+        // Always fetch all jobs from DB to sync state properly
+        const records = await this.repository.list({}, { limit: 100 });
+        const dbJobIds = new Set<string>();
+
         for (const record of records) {
+          dbJobIds.add(record.id);
           this.jobs.set(record.id, recordToJob(record));
+        }
+
+        // Remove in-memory jobs that no longer exist in DB (stale orphans)
+        for (const [id, job] of this.jobs) {
+          if (!dbJobIds.has(id)) {
+            logger.debug(
+              { jobId: id, status: job.status },
+              'Removing stale in-memory job not found in DB'
+            );
+            this.jobs.delete(id);
+          }
         }
       } catch (error) {
         logger.warn({ error }, 'Failed to load jobs from database');
