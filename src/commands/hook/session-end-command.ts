@@ -14,6 +14,7 @@ import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
 import { getBehaviorObserverService } from '../../services/capture/behavior-observer.js';
 import { getInjectionTrackerService } from '../../services/injection-tracking/index.js';
 import { getHookLearningService } from '../../services/learning/index.js';
+import { createSessionEpisodeCleanup } from '../../services/episode/session-cleanup.js';
 
 const logger = createComponentLogger('session-end');
 
@@ -87,6 +88,52 @@ export async function runSessionEndCommand(params: {
       },
       'Session end processing completed'
     );
+
+    // Complete any active episode for this session
+    // This must happen after transcript ingestion so we have messages for outcome inference
+    if (result.appended > 0) {
+      try {
+        const ctx = getContext();
+        if (ctx.repos.episodes) {
+          const sessionEpisodeCleanup = createSessionEpisodeCleanup({
+            episodeRepo: ctx.repos.episodes,
+            episodeService: ctx.services.episode,
+            captureService: ctx.services.capture,
+            unifiedMessageSource: ctx.services.unifiedMessageSource,
+          });
+
+          const cleanupResult = await sessionEpisodeCleanup.completeSessionEpisode(
+            sessionId,
+            'session_end_hook'
+          );
+
+          if (cleanupResult.episodeId) {
+            logger.info(
+              {
+                sessionId,
+                episodeId: cleanupResult.episodeId,
+                action: cleanupResult.action,
+                outcomeType: cleanupResult.outcomeType,
+                confidence: cleanupResult.confidence,
+              },
+              'Completed active episode on session end'
+            );
+          }
+        }
+      } catch (episodeCleanupError) {
+        // Don't fail the session end if episode cleanup fails - just log it
+        logger.warn(
+          {
+            sessionId,
+            error:
+              episodeCleanupError instanceof Error
+                ? episodeCleanupError.message
+                : String(episodeCleanupError),
+          },
+          'Episode cleanup failed on session end (non-fatal)'
+        );
+      }
+    }
 
     // Backfill episode-message links for completed episodes in this session
     // This handles cases where transcript was ingested after episode.complete() ran

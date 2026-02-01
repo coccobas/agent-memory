@@ -189,6 +189,7 @@ export class OutcomeAnalyzerService {
   private provider: LLMProvider;
   private openaiClient: OpenAI | null = null;
   private anthropicClient: Anthropic | null = null;
+  private readonly isLMStudio: boolean;
 
   constructor(configOverrides?: OutcomeAnalysisConfig) {
     this.config = {
@@ -202,6 +203,10 @@ export class OutcomeAnalyzerService {
 
     this.provider = this.selectProvider();
     this.initializeClients();
+    this.isLMStudio =
+      config.extraction.openaiBaseUrl?.includes('localhost') ||
+      config.extraction.openaiBaseUrl?.includes('127.0.0.1') ||
+      false;
 
     logger.info(
       { provider: this.provider, config: this.config },
@@ -690,7 +695,7 @@ export class OutcomeAnalyzerService {
           { role: 'system', content: SUCCESS_PATTERN_PROMPT },
           { role: 'user', content: prompt },
         ],
-        response_format: { type: 'json_object' },
+        ...(this.isLMStudio ? {} : { response_format: { type: 'json_object' as const } }),
         temperature: 0.3,
         max_tokens: 2000,
       });
@@ -722,7 +727,7 @@ export class OutcomeAnalyzerService {
           { role: 'system', content: ERROR_ANALYSIS_PROMPT },
           { role: 'user', content: prompt },
         ],
-        response_format: { type: 'json_object' },
+        ...(this.isLMStudio ? {} : { response_format: { type: 'json_object' as const } }),
         temperature: 0.3,
         max_tokens: 2000,
       });

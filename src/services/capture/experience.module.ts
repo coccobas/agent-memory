@@ -452,6 +452,12 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
     }
 
     const client = this.openaiClient;
+
+    // Check if using LM Studio (or other OpenAI-compatible endpoint)
+    const isLMStudio =
+      config.extraction.openaiBaseUrl?.includes('localhost') ||
+      config.extraction.openaiBaseUrl?.includes('127.0.0.1');
+
     return withRetry(
       async () => {
         const response = await client.chat.completions.create({
@@ -463,7 +469,9 @@ export class ExperienceCaptureModule implements CaptureModule<ExperienceCaptureR
               content: `Analyze this conversation and extract experiences:\n\n${context}`,
             },
           ],
-          response_format: { type: 'json_object' },
+          // LM Studio doesn't support json_object, only json_schema or text
+          // For local endpoints, omit response_format and rely on prompt engineering
+          ...(isLMStudio ? {} : { response_format: { type: 'json_object' as const } }),
           temperature: config.extraction.temperature,
           max_tokens: config.extraction.maxTokens,
           // reasoning_effort for models with extended thinking

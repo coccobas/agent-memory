@@ -63,6 +63,10 @@ export function createOutcomeInferenceService(serviceConfig: OutcomeInferenceCon
   async function inferWithOpenAI(context: string): Promise<OutcomeInferenceResult | null> {
     if (!openaiClient) return null;
 
+    const isLMStudio =
+      config.extraction.openaiBaseUrl?.includes('localhost') ||
+      config.extraction.openaiBaseUrl?.includes('127.0.0.1');
+
     try {
       const response = await withRetry(
         async () => {
@@ -72,7 +76,7 @@ export function createOutcomeInferenceService(serviceConfig: OutcomeInferenceCon
               { role: 'system', content: OUTCOME_INFERENCE_PROMPT },
               { role: 'user', content: `Analyze this conversation:\n\n${context}` },
             ],
-            response_format: { type: 'json_object' },
+            ...(isLMStudio ? {} : { response_format: { type: 'json_object' as const } }),
             temperature: 0.1,
             max_tokens: 256,
           });
