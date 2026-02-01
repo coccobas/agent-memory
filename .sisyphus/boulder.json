@@ -1,7 +1,8 @@
 {
-  "active_plan": "/Users/coccobas/Development/memory/agent-memory/.sisyphus/plans/tool-outcome-tracking.md",
-  "started_at": "2026-01-29T22:31:54.571Z",
-  "session_ids": ["ses_3f55160a7ffetOT9dphVd23l9L"],
-  "plan_name": "tool-outcome-tracking",
-  "status": "in_progress"
+  "active_plan": "/Users/coccobas/Development/memory/agent-memory/.sisyphus/plans/episode-quality-fixes.md",
+  "started_at": "2026-02-01T01:11:14.466Z",
+  "completed_at": "2026-02-01T02:28:00.000Z",
+  "session_ids": ["ses_3e93efc81ffe2P0FRvulXHTFkh"],
+  "plan_name": "episode-quality-fixes",
+  "status": "completed"
 }
