@@ -10,6 +10,7 @@
 import { pgTable, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
 import { sessions, projects } from './scopes.js';
 import { conversations } from './conversations.js';
+import { topics } from './topics.js';
 
 /**
  * Episode status enum
@@ -37,6 +38,7 @@ export const episodes = pgTable(
     scopeId: text('scope_id'),
     projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
     sessionId: text('session_id').references(() => sessions.id, { onDelete: 'cascade' }),
+    topicId: text('topic_id').references(() => topics.id, { onDelete: 'set null' }),
     conversationId: text('conversation_id').references(() => conversations.id),
 
     name: text('name').notNull(),
@@ -83,6 +85,7 @@ export const episodes = pgTable(
   (table) => [
     index('idx_episodes_project').on(table.projectId),
     index('idx_episodes_session').on(table.sessionId),
+    index('idx_episodes_topic').on(table.topicId),
     index('idx_episodes_conversation').on(table.conversationId),
     index('idx_episodes_status').on(table.status),
     index('idx_episodes_time_range').on(table.startedAt, table.endedAt),
