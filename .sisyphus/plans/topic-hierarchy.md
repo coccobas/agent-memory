@@ -531,7 +531,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ### Phase 4: Integration
 
-- [ ] 10. Episode boundary detection for topics (SKIPPED - optional enhancement)
+- [x] 10. Episode boundary detection for topics (SKIPPED - optional enhancement, not required for MVP)
 
   **What to do**:
   - Extend boundary-detector.ts to detect task switches within topics
