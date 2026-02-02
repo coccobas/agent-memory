@@ -571,7 +571,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 11. Integrate topics into memory_quickstart
+- [x] 11. Integrate topics into memory_quickstart
 
   **What to do**:
   - Update quickstart to create/resume topics

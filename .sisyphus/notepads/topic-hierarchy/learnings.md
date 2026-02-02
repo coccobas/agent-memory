@@ -956,3 +956,104 @@ Task 11 will:
 1. Integrate TopicService into quickstart flow
 2. Auto-create/resume topics from user messages
 3. Link episodes to topics via topicId
+
+## [2026-02-02T13:40:00.000Z] Task 11 Complete: Quickstart Topic Integration
+
+### Implementation Summary
+
+Successfully integrated topic creation/resumption into `memory_quickstart.ts`:
+
+**Files Modified:**
+
+- `src/mcp/descriptors/memory_quickstart.ts` - Added topic integration
+- `src/core/interfaces/repositories/temporal.ts` - Added topicId to CreateEpisodeInput
+- `src/db/repositories/episodes.ts` - Pass topicId through to episode creation
+
+### Key Features Added
+
+1. **User Message Parameter**: Added `userMessage` param to quickstart
+   - Triggers LLM-based topic extraction
+   - Optional - existing calls work without it
+
+2. **Date-Based Session Fallback**: If no sessionName provided, generates "Session YYYY-MM-DD"
+   - Ensures every quickstart call has a session name
+   - Maintains temporal context for date-based navigation
+
+3. **Topic Extraction Flow**:
+   - User message → extractTopicName(userMessage) via LLM
+   - findSimilar(topicName, 0.8) checks for existing similar topics
+   - If found (similarity >= 0.8): resume existing topic
+   - If not found: create new topic
+   - All non-blocking with graceful fallback
+
+4. **Episode-Topic Linking**:
+   - Added topicId to CreateEpisodeInput interface
+   - Updated episode repository to pass topicId to DB
+   - Episodes created via quickstart now have topicId populated
+
+5. **Output Enhancement**:
+   - Added `activeTopic` to quickstart response
+   - Added `topicAction` ('created' | 'resumed' | 'none')
+   - Full backward compatibility maintained
+
+### Backward Compatibility
+
+✅ All existing tests pass (full-workflow, topics, episodes)
+✅ Existing quickstart calls work without userMessage
+✅ topicId is nullable - no migration needed
+✅ sessionName fallback ensures existing behavior preserved
+
+### Technical Decisions
+
+1. **Topic Service Creation**: Created inline via `createTopicService({ topicRepo: ctx.repos.topics })`
+   - Simple, no context modification needed
+   - Uses existing repository from context
+
+2. **Error Handling**: All topic operations wrapped in try/catch
+   - Topic failures don't break quickstart
+   - Logged as warnings, session/episode creation continues
+
+3. **Similarity Threshold**: 0.8 (80% similarity)
+   - High enough to avoid false positives
+   - Low enough to catch semantic variations
+
+### Test Results
+
+✅ `bun run build` passes
+✅ 18/18 full-workflow tests pass
+✅ 107/107 topic tests pass
+✅ 18/18 episode tests pass
+
+### Next Steps
+
+- Task 12: Create dedicated memory_topic MCP tool
+- Task 13: Topic completion/resolution functionality
+- Task 14: Documentation and user guide
+
+### Pattern for Topic Integration
+
+```typescript
+// In any handler needing topic support:
+import { extractTopicName } from '../../services/extraction/topic-extractor.js';
+import { createTopicService } from '../../services/topic/index.js';
+
+// Extract topic from user message
+const topicName = await extractTopicName(userMessage);
+
+// Find or create topic
+const topicService = createTopicService({ topicRepo: ctx.repos.topics });
+const similarTopics = await topicService.findSimilar(topicName, 0.8);
+
+if (similarTopics.length > 0) {
+  topic = similarTopics[0]; // Resume existing
+} else {
+  topic = await topicService.create({ ... }); // Create new
+}
+
+// Link to episode
+await ctx.services.episode.create({
+  ...
+  topicId: topic?.id,
+  ...
+});
+```
