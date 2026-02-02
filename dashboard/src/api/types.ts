@@ -139,6 +139,21 @@ export interface TimelineEntry {
   data?: Record<string, unknown>;
 }
 
+// Topic
+export interface Topic {
+  id: string;
+  projectId?: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'inactive';
+  scopeType: string;
+  scopeId?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, unknown>;
+}
+
 // Project
 export interface Project {
   id: string;

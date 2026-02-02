@@ -34,6 +34,7 @@ const AnalyticsPage = lazy(() =>
   import('@/pages/analytics').then((m) => ({ default: m.AnalyticsPage }))
 );
 const TasksPage = lazy(() => import('@/pages/tasks').then((m) => ({ default: m.TasksPage })));
+const TopicsPage = lazy(() => import('@/pages/topics').then((m) => ({ default: m.TopicsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +112,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <EpisodesPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'topics',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <TopicsPage />
           </Suspense>
         ),
       },

@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
+  FolderKanban,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ const navSections: NavSection[] = [
     title: 'Tracking',
     items: [
       { path: '/tasks', label: 'Tasks', icon: CheckSquare },
+      { path: '/topics', label: 'Topics', icon: FolderKanban },
       { path: '/sessions', label: 'Sessions', icon: Clock },
     ],
   },

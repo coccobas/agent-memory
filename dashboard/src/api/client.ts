@@ -22,6 +22,7 @@ import type {
   Session,
   Episode,
   Project,
+  Topic,
   GraphNode,
   GraphEdge,
   LibrarianStatusData,
@@ -483,6 +484,24 @@ export const api = {
         action: 'deactivate',
         id,
       });
+    },
+  },
+
+  topics: {
+    list: async (projectId?: string): Promise<Topic[]> => {
+      const data = await apiCall<{ topics: Topic[] }>('memory_topic', {
+        action: 'list',
+        ...(projectId && { projectId }),
+      });
+      return data.topics;
+    },
+
+    get: async (id: string): Promise<Topic> => {
+      const data = await apiCall<{ topic: Topic }>('memory_topic', {
+        action: 'get',
+        id,
+      });
+      return data.topic;
     },
   },
 };
