@@ -5,6 +5,9 @@
  */
 
 import { Command, Option } from 'commander';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 // Import command registration functions
 import { addKnowledgeCommand } from './commands/knowledge.js';
@@ -38,8 +41,12 @@ import { addForgetCommand } from './commands/forget.js';
 import { addRlCommand } from './commands/rl.js';
 import { addKeyCommand } from './commands/key.js';
 
-// Version from package.json
-const VERSION = '0.9.15';
+// Read version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJsonPath = join(__dirname, '..', '..', 'package.json');
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as { version: string };
+const VERSION: string = packageJson.version;
 
 /**
  * Create the Commander.js program
