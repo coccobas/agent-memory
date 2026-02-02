@@ -1,20 +1,25 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-background: #09090b;
+  /* Linear-style near-black hierarchy */
+  --color-background: #08090a;
   --color-foreground: #fafafa;
-  --color-card: #18181b;
+  --color-card: #1a1c1f;
   --color-card-foreground: #fafafa;
-  --color-muted: #27272a;
+  --color-card-hover: #1f2125;
+  --color-muted: #121316;
   --color-muted-foreground: #a1a1aa;
-  --color-border: #27272a;
-  --color-primary: #3b82f6;
+  --color-subtle: #71717a;
+  --color-border: #282a2f;
+  --color-border-focus: #3a3d44;
+  --color-primary: #5e6ad2;
   --color-primary-foreground: #ffffff;
-  --color-destructive: #ef4444;
-  --color-success: #22c55e;
+  --color-destructive: #eb5757;
+  --color-success: #4cb782;
   --color-warning: #f59e0b;
+  --color-info: #4ea7fc;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
@@ -26,4 +31,28 @@ html {
 
 body {
   @apply bg-background text-foreground antialiased;
+}
+
+/* Custom scrollbar for dark mode */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
 }

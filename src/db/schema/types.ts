@@ -22,6 +22,7 @@ export type AuditEntryType =
   | 'relation'
   | 'tag'
   | 'episode'
+  | 'topic'
   | 'permission';
 
 /**

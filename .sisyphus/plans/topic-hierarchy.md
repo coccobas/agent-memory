@@ -612,7 +612,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 12. Create memory_topic MCP tool
+- [x] 12. Create memory_topic MCP tool
 
   **What to do**:
   - Create `src/mcp/descriptors/memory_topic.ts`

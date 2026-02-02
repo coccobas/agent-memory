@@ -37,6 +37,12 @@ import type {
   NotificationStatsData,
   DashboardAnalyticsData,
   SearchResult,
+  Task,
+  TasksData,
+  TaskType,
+  TaskSeverity,
+  TaskUrgency,
+  TaskStatus,
 } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8787`;
@@ -423,5 +429,60 @@ export const api = {
       limit: 20,
     });
     return data.results;
+  },
+
+  tasks: {
+    list: async (scopeType = 'global', scopeId?: string): Promise<Task[]> => {
+      const data = await apiCall<TasksData>('memory_task', {
+        action: 'list',
+        scopeType,
+        limit: MAX_LIMIT,
+        ...(scopeId && { scopeId }),
+      });
+      return data.tasks;
+    },
+
+    create: async (task: {
+      title: string;
+      description: string;
+      taskType: TaskType;
+      scopeType: string;
+      scopeId?: string;
+      severity?: TaskSeverity;
+      urgency?: TaskUrgency;
+      assignee?: string;
+      dueDate?: string;
+    }): Promise<Task> => {
+      const data = await apiCall<{ task: Task }>('memory_task', {
+        action: 'add',
+        ...task,
+      });
+      return data.task;
+    },
+
+    update: async (id: string, updates: Partial<Task>): Promise<Task> => {
+      const data = await apiCall<{ task: Task }>('memory_task', {
+        action: 'update',
+        id,
+        ...updates,
+      });
+      return data.task;
+    },
+
+    updateStatus: async (id: string, status: TaskStatus): Promise<Task> => {
+      const data = await apiCall<{ task: Task }>('memory_task', {
+        action: 'update_status',
+        id,
+        status,
+      });
+      return data.task;
+    },
+
+    delete: async (id: string): Promise<void> => {
+      await apiCall('memory_task', {
+        action: 'deactivate',
+        id,
+      });
+    },
   },
 };

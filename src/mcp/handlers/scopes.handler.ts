@@ -34,7 +34,10 @@ import { getInjectionTrackerService } from '../../services/injection-tracking/in
 
 const logger = createComponentLogger('scopes');
 import { DEFAULT_LIBRARIAN_CONFIG } from '../../services/librarian/types.js';
-import { createSessionEpisodeCleanup } from '../../services/episode/session-cleanup.js';
+import {
+  createSessionEpisodeCleanup,
+  type SessionEpisodeCleanupResult,
+} from '../../services/episode/session-cleanup.js';
 import type {
   OrgCreateParams,
   OrgListParams,
@@ -76,6 +79,76 @@ function getProcessingMetadata(
     };
   }
   return null;
+}
+
+/**
+ * End a session with proper episode cleanup.
+ *
+ * This helper ensures episodes are completed/cancelled before ending the session,
+ * preventing orphaned active episodes in completed sessions.
+ *
+ * @param context - Application context
+ * @param sessionId - Session ID to end
+ * @param status - Status to set on the session (default: 'completed')
+ * @param reason - Reason for ending (used in episode cleanup log)
+ * @returns Episode cleanup result and whether session was ended
+ */
+export async function endSessionWithCleanup(
+  context: AppContext,
+  sessionId: string,
+  status: 'completed' | 'discarded' = 'completed',
+  reason = 'session_auto_end'
+): Promise<{
+  episodeCleanup: SessionEpisodeCleanupResult | null;
+  sessionEnded: boolean;
+}> {
+  let episodeCleanup: SessionEpisodeCleanupResult | null = null;
+
+  // Clean up active episodes first (unless discarding)
+  if (context.repos.episodes && status !== 'discarded') {
+    try {
+      const sessionEpisodeCleanup = createSessionEpisodeCleanup({
+        episodeRepo: context.repos.episodes,
+        episodeService: context.services.episode,
+        captureService: context.services.capture,
+        unifiedMessageSource: context.services.unifiedMessageSource,
+      });
+      episodeCleanup = await sessionEpisodeCleanup.completeSessionEpisode(sessionId, reason);
+
+      if (episodeCleanup.episodeId) {
+        logger.debug(
+          {
+            sessionId,
+            episodeId: episodeCleanup.episodeId,
+            action: episodeCleanup.action,
+            reason,
+          },
+          'Completed episode before ending session'
+        );
+      }
+    } catch (error) {
+      // Non-fatal - log and continue with session end
+      logger.warn(
+        {
+          sessionId,
+          reason,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Episode cleanup failed before session end (non-fatal)'
+      );
+    }
+  }
+
+  // End the session
+  const session = await context.repos.sessions.end(sessionId, status);
+  const sessionEnded = session !== null;
+
+  if (sessionEnded) {
+    // Clear injection tracker for ended session
+    getInjectionTrackerService().clearSession(sessionId);
+  }
+
+  return { episodeCleanup, sessionEnded };
 }
 
 async function markProcessingTriggered(
@@ -255,7 +328,7 @@ export const scopeHandlers = {
     const agentId = getOptionalParam(params, 'agentId', isString);
     const metadata = getOptionalParam(params, 'metadata', isObject);
 
-    // End any active sessions for this project and trigger maintenance
+    // End any active sessions for this project (with episode cleanup) and trigger maintenance
     if (projectId) {
       const activeSessions = await context.repos.sessions.list(
         { projectId, status: 'active' },
@@ -263,9 +336,20 @@ export const scopeHandlers = {
       );
 
       for (const activeSession of activeSessions) {
-        await context.repos.sessions.end(activeSession.id, 'completed');
+        const { episodeCleanup } = await endSessionWithCleanup(
+          context,
+          activeSession.id,
+          'completed',
+          'new_session_start'
+        );
         logger.debug(
-          { sessionId: activeSession.id, projectId },
+          {
+            sessionId: activeSession.id,
+            projectId,
+            episodeCleanup: episodeCleanup
+              ? { episodeId: episodeCleanup.episodeId, action: episodeCleanup.action }
+              : null,
+          },
           'Auto-ended stale session on new session start'
         );
       }

@@ -234,6 +234,15 @@ export interface ISessionRepository {
    * @throws {AgentMemoryError} E4000 - Database operation failed
    */
   delete(id: string): Promise<boolean>;
+
+  /**
+   * Reactivate a completed/discarded session.
+   * Sets status back to 'active' and clears endedAt.
+   * @param id - Session ID
+   * @returns Reactivated session, or undefined if not found
+   * @throws {AgentMemoryError} E4000 - Database operation failed
+   */
+  reactivate(id: string): Promise<Session | undefined>;
 }
 
 // =============================================================================

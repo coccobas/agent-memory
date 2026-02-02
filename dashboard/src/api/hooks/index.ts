@@ -53,3 +53,11 @@ export type {
   CreateExperienceInput,
   UpdateExperienceInput,
 } from './use-mutations';
+export {
+  useTasks,
+  useCreateTask,
+  useUpdateTask,
+  useUpdateTaskStatus,
+  useDeleteTask,
+} from './use-tasks';
+export type { CreateTaskInput, UpdateTaskInput, UpdateTaskStatusInput } from './use-tasks';

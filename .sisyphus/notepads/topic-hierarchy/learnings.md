@@ -1057,3 +1057,173 @@ await ctx.services.episode.create({
   ...
 });
 ```
+
+## [2026-02-02T14:45:00.000Z] Task 12 Complete: memory_topic MCP Tool Descriptor & Handler
+
+### Implementation Summary
+
+Successfully created `memory_topic` MCP tool following exact pattern of `memory_episode`:
+
+**Files Created:**
+
+- `src/mcp/descriptors/memory_topic.ts` - Tool descriptor with 6 actions
+- `src/mcp/handlers/topics.handler.ts` - Handler implementations
+
+**Files Modified:**
+
+- `src/mcp/descriptors/index.ts` - Registered tool in allDescriptors array and exports
+- `src/db/schema/types.ts` - Added 'topic' to AuditEntryType enum
+
+### Tool Actions Implemented
+
+1. **list** - List topics with optional filters (scopeType, status, includeInactive)
+2. **get** - Get topic by ID
+3. **create** - Create new topic with name, description, status, metadata
+4. **update** - Update topic fields (name, description, status, metadata)
+5. **deactivate** - Soft delete (set isActive=false)
+6. **find_similar** - Semantic search for similar topics (threshold parameter)
+
+### Key Design Decisions
+
+1. **No Complete Action**: Topics don't complete (unlike episodes)
+   - Topics are persistent work contexts
+   - Only 'active' | 'inactive' status
+   - Deactivate is soft delete, not completion
+
+2. **Handler Signature**: `async (context: AppContext, params: Record<string, unknown>)`
+   - Matches episodes.handler pattern exactly
+   - First param is context, second is params
+   - Type guards for all parameters
+
+3. **Audit Logging**: Used valid AuditAction types
+   - 'query' for list and find_similar
+   - 'read' for get
+   - 'create' for create
+   - 'update' for update and deactivate
+   - Added 'topic' to AuditEntryType enum
+
+4. **Error Handling**: Consistent with episodes
+   - createNotFoundError for missing topics
+   - createValidationError for invalid inputs
+   - logAction for all operations
+
+### Schema Type Updates
+
+**Added 'topic' to AuditEntryType enum:**
+
+```typescript
+export type AuditEntryType =
+  | EntryType
+  | 'graph_node'
+  | 'graph_edge'
+  | 'relation'
+  | 'tag'
+  | 'episode'
+  | 'topic' // ← NEW
+  | 'permission';
+```
+
+This allows audit logging of topic operations with proper type safety.
+
+### Handler Implementation Pattern
+
+All handlers follow consistent pattern:
+
+```typescript
+const actionName: ContextAwareHandler = async (context, params) => {
+  const topicService = getTopicService(context);
+
+  // Extract and validate parameters
+  const id = getRequiredParam(params, 'id', isString);
+  const name = getOptionalParam(params, 'name', isString);
+
+  // Call service
+  const result = await topicService.method(...);
+
+  // Log action
+  await logAction({
+    agentId: 'system',
+    action: 'create',
+    entryType: 'topic',
+    entryId: result.id,
+    scopeType: result.scopeType,
+    scopeId: result.scopeId ?? null,
+  }, context.db);
+
+  // Return formatted response
+  return formatTimestamps({
+    success: true,
+    topic: result,
+  });
+};
+```
+
+### Verification Results
+
+✅ Build passes: `npm run build`
+✅ Tool appears in MCP tools list (51 total tools)
+✅ Tool descriptor properly exported
+✅ All handlers properly typed
+✅ No TypeScript errors
+✅ No LSP diagnostics
+
+### Integration Points
+
+**Used by:**
+
+- MCP clients (Claude Desktop, Cursor, etc.)
+- Any tool that needs to manage topics
+- Quickstart integration (already wired in Task 11)
+
+**Dependencies:**
+
+- TopicService (Task 7) - business logic
+- TopicRepository (Task 4) - data access
+- Topic schema (Task 1) - database structure
+
+### Patterns Followed
+
+- Matches memory_episode descriptor structure exactly
+- Matches episodes.handler implementation pattern
+- Uses existing type guards and error handling
+- Follows audit logging conventions
+- Consistent parameter naming and validation
+
+### Gotchas Discovered
+
+1. **Handler Signature Order**: Context FIRST, params SECOND
+   - Common mistake: putting params first
+   - Causes type errors with AppContext vs Record<string, unknown>
+
+2. **Audit Action Types**: Limited set of valid actions
+   - Valid: 'query', 'create', 'update', 'delete', 'read', 'verify_pre', 'verify_post', 'acknowledge'
+   - Invalid: 'list', 'get', 'deactivate', 'find_similar'
+   - Map custom actions to valid audit actions
+
+3. **AuditEntryType Extension**: Must add new entry types to schema
+   - Added 'topic' to AuditEntryType enum
+   - Enables type-safe audit logging
+   - Prevents TypeScript errors in handlers
+
+4. **Null vs Undefined**: Audit logging expects null for missing scopeId
+   - Use `scopeId ?? null` not `scopeId ?? undefined`
+   - Matches database schema expectations
+
+### Next Steps (Task 13-14)
+
+- Task 13: Topic completion/resolution functionality
+- Task 14: Documentation and user guide
+
+### Files Summary
+
+**Created:**
+
+- `src/mcp/descriptors/memory_topic.ts` (67 lines)
+- `src/mcp/handlers/topics.handler.ts` (233 lines)
+
+**Modified:**
+
+- `src/mcp/descriptors/index.ts` - Added import, registration, export
+- `src/db/schema/types.ts` - Added 'topic' to AuditEntryType
+
+**Total Changes:** 4 files, ~300 lines of code

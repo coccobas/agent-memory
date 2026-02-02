@@ -512,6 +512,34 @@ export function createSessionRepository(deps: DatabaseDeps): ISessionRepository 
       }
       return result.changes > 0;
     },
+
+    async reactivate(id: string): Promise<Session | undefined> {
+      const existing = await repo.getById(id);
+      if (!existing) return undefined;
+
+      if (existing.status === 'active') {
+        return existing;
+      }
+
+      db.update(sessions)
+        .set({
+          status: 'active',
+          endedAt: null,
+          metadata: {
+            ...existing.metadata,
+            reactivatedAt: now(),
+            previousStatus: existing.status,
+          },
+        })
+        .where(eq(sessions.id, id))
+        .run();
+
+      const result = await repo.getById(id);
+      if (result) {
+        invalidateScopeChainCache('session', id);
+      }
+      return result;
+    },
   };
 
   return repo;

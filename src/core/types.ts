@@ -41,6 +41,11 @@ export interface DatabaseDeps {
   db: AppDb;
   /** Raw better-sqlite3 database instance for transactions and raw SQL (SQLite mode only) */
   sqlite?: Database.Database;
+  /** Embedding service for generating embeddings (optional) */
+  embeddingService?: {
+    isAvailable(): boolean;
+    embed(text: string, type: 'query' | 'document'): Promise<{ embedding: number[] }>;
+  };
 }
 
 // Re-export query types from query-types.ts

@@ -521,3 +521,64 @@ export interface SearchData {
   results: SearchResult[];
   total: number;
 }
+
+// =============================================================
+// TASK TYPES
+// =============================================================
+
+export type TaskType =
+  | 'bug'
+  | 'feature'
+  | 'improvement'
+  | 'debt'
+  | 'research'
+  | 'question'
+  | 'other';
+export type TaskDomain = 'agent' | 'physical';
+export type TaskSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type TaskUrgency = 'immediate' | 'soon' | 'normal' | 'later';
+export type TaskStatus =
+  | 'backlog'
+  | 'open'
+  | 'in_progress'
+  | 'blocked'
+  | 'review'
+  | 'done'
+  | 'wont_do';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  taskType: TaskType;
+  taskDomain: TaskDomain;
+  severity: TaskSeverity;
+  urgency: TaskUrgency;
+  status: TaskStatus;
+  category?: string;
+  resolution?: string;
+  file?: string;
+  startLine?: number;
+  endLine?: number;
+  assignee?: string;
+  reporter?: string;
+  parentTaskId?: string;
+  blockedBy?: string[];
+  dueDate?: string;
+  startedAt?: string;
+  resolvedAt?: string;
+  estimatedMinutes?: number;
+  actualMinutes?: number;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  scopeType: string;
+  scopeId?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TasksData {
+  tasks: Task[];
+  meta: { returnedCount: number };
+}

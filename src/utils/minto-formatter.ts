@@ -45,7 +45,7 @@ export function formatMinto(output: MintoOutput): string {
 export interface QuickstartMintoInput {
   projectName: string | null;
   sessionName: string | null;
-  sessionAction: 'created' | 'resumed' | 'none' | 'error';
+  sessionAction: 'created' | 'resumed' | 'reactivated' | 'none' | 'error';
   episodeName: string | null;
   entryCounts: { guidelines: number; knowledge: number; tools: number; experiences: number };
   healthScore?: number;
@@ -59,9 +59,11 @@ export function formatQuickstartMinto(input: QuickstartMintoInput): string {
   const sessionStatus =
     input.sessionAction === 'resumed'
       ? 'resumed'
-      : input.sessionAction === 'created'
-        ? 'started'
-        : 'no session';
+      : input.sessionAction === 'reactivated'
+        ? 'reactivated'
+        : input.sessionAction === 'created'
+          ? 'started'
+          : 'no session';
 
   const answer = input.staleCodeWarning
     ? `⚠️ ${input.staleCodeWarning}`

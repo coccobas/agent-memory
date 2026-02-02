@@ -58,6 +58,7 @@ import { memoryExtractionApproveDescriptor } from './memory_extraction_approve.j
 import { memoryStatusDescriptor } from './memory_status.js';
 import { memoryDiscoverDescriptor } from './memory_discover.js';
 import { memoryEpisodeDescriptor } from './memory_episode.js';
+import { memoryTopicDescriptor } from './memory_topic.js';
 import { memoryOpsDescriptor } from './memory_ops.js';
 import { memoryOnboardDescriptor } from './memory_onboard.js';
 import { memoryWalkthroughDescriptor } from './memory_walkthrough.js';
@@ -207,6 +208,8 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryDiscoverDescriptor,
   // Episodes (Temporal Activity Grouping)
   memoryEpisodeDescriptor,
+  // Topics (Persistent Work Context)
+  memoryTopicDescriptor,
   // Operational Utilities (auto-tag, session timeout, red flags, embedding coverage, backfill)
   memoryOpsDescriptor,
   // Onboarding Wizard (guided setup for new projects)
@@ -292,6 +295,7 @@ export {
   memoryExtractionApproveDescriptor,
   memoryStatusDescriptor,
   memoryEpisodeDescriptor,
+  memoryTopicDescriptor,
   memoryOpsDescriptor,
   memoryOnboardDescriptor,
   memoryWalkthroughDescriptor,

@@ -8,3 +8,4 @@ export { EpisodesPage } from './episodes';
 export { GraphPage } from './graph';
 export { LibrarianPage } from './librarian';
 export { AnalyticsPage } from './analytics';
+export { TasksPage } from './tasks';
