@@ -558,6 +558,58 @@ Created `src/db/repositories/topics.ts` following episodes.ts pattern exactly:
 - Updated: `src/core/interfaces/repositories/knowledge-graph.ts`
 - Updated: `src/db/repositories/index.ts`
 - Updated: `src/db/schema/graph.ts`
+
+## ESLint Fix: Type Assertions for JSON.parse()
+
+**Date**: 2026-02-02
+
+### Issue
+
+Pre-commit hook failing with 4 ESLint errors:
+
+```
+src/db/repositories/topics.ts
+   54:7   error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+   55:7   error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+  138:9   error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+  139:9   error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+```
+
+### Root Cause
+
+`JSON.parse()` returns `any`, triggering `@typescript-eslint/no-unsafe-assignment` rule.
+
+### Solution
+
+Added type assertions to JSON.parse() calls:
+
+**Before**:
+
+```typescript
+metadata: topic.metadata ? JSON.parse(topic.metadata) : undefined,
+embedding: topic.embedding ? JSON.parse(topic.embedding) : undefined,
+```
+
+**After**:
+
+```typescript
+metadata: topic.metadata ? (JSON.parse(topic.metadata) as Record<string, unknown>) : undefined,
+embedding: topic.embedding ? (JSON.parse(topic.embedding) as number[]) : undefined,
+```
+
+### Verification
+
+✅ ESLint passes (4 errors fixed)
+✅ All 35 tests still pass
+✅ Build passes with no TypeScript errors
+
+### Pattern for Future
+
+Always add type assertions when parsing JSON from database:
+
+- `metadata` → `as Record<string, unknown>`
+- `embedding` → `as number[]`
+- `tags` → `as string[]`
 - Updated: `src/services/graph/sync.service.ts`
 - Updated: `tests/fixtures/test-helpers.ts`
 
