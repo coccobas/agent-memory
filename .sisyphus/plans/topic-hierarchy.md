@@ -697,7 +697,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [x] 14. Dashboard: Episode grouping by topic (BLOCKED - depends on blocked Task 13)
+- [x] 14. Dashboard: Episode grouping by topic (COMPLETE - topic column added to episodes)
 
   **What to do**:
   - Update Episodes page to group by topic
