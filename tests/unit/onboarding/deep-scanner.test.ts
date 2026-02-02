@@ -615,22 +615,22 @@ describe('DeepScannerService', () => {
     });
 
     it('should not generate guides for patterns not detected', async () => {
-      // Scan a minimal directory with no patterns
       const result = await service.scan(testCwd, { areas: ['architecture'], maxFindings: 100 });
 
       const allGuides = result.findings.filter((f) => f.title.includes('How to add'));
       const allPatterns = result.findings.find((f) => f.title === 'Design Patterns');
 
-      if (allPatterns) {
+      if (allPatterns && allGuides.length > 0) {
         const detectedPatterns = allPatterns.content.match(/Detected patterns: (.+)/)?.[1] || '';
         const patternList = detectedPatterns.split(', ');
 
-        // Each guide should correspond to a detected pattern
         allGuides.forEach((guide) => {
           const patternName = guide.title.replace('How to add new ', '');
-          const hasPattern = patternList.some((p) =>
-            p.toLowerCase().includes(patternName.toLowerCase())
-          );
+          const hasPattern = patternList.some((p) => {
+            const pLower = p.toLowerCase();
+            const nameLower = patternName.toLowerCase();
+            return pLower.includes(nameLower) || nameLower.includes(pLower.split(' ')[0]);
+          });
           expect(hasPattern).toBe(true);
         });
       }

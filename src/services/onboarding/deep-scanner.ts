@@ -170,7 +170,7 @@ export class DeepScannerService implements IDeepScannerService {
         confidence: 0.75,
       });
 
-      const patternGuides = this.generatePatternGuides(patterns, cwd);
+      const patternGuides = this.generatePatternGuides(patterns);
       findings.push(...patternGuides);
     }
 
@@ -760,7 +760,7 @@ export class DeepScannerService implements IDeepScannerService {
         confidence: 0.75,
       },
       'Dependency Injection': {
-        title: 'How to add new Injectable',
+        title: 'How to add new Dependency',
         steps: [
           'Define interface for dependency',
           'Register in DI container',
@@ -787,7 +787,7 @@ export class DeepScannerService implements IDeepScannerService {
         confidence: 0.75,
       },
       'Observer/Event Pattern': {
-        title: 'How to add new Event Handler',
+        title: 'How to add new Observer',
         steps: [
           'Define event type',
           'Create handler function',
