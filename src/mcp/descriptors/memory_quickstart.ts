@@ -12,13 +12,15 @@
 
 import type { SimpleToolDescriptor } from './types.js';
 import { queryHandlers } from '../handlers/query.handler.js';
-import { scopeHandlers } from '../handlers/scopes.handler.js';
+import { scopeHandlers, endSessionWithCleanup } from '../handlers/scopes.handler.js';
 import type { SessionStartParams } from '../types.js';
 import {
   formatQuickstartDashboard,
   type QuickstartDisplayData,
   type QuickstartDisplayMode,
 } from '../../utils/terminal-formatter.js';
+import { levenshteinDistance } from '../../utils/text-matching.js';
+import type { Session } from '../../db/schema.js';
 import { formatQuickstartMinto, type QuickstartMintoInput } from '../../utils/minto-formatter.js';
 import type { EntryType, ScopeType } from '../../db/schema.js';
 import type { PermissionLevel } from '../../services/permission.service.js';
@@ -30,6 +32,11 @@ import {
 import { checkStaleCode, type StaleCodeInfo } from '../../utils/server-diagnostics.js';
 import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
 import type { WhatHappenedResult } from '../../services/episode/index.js';
+import { extractTopicName } from '../../services/extraction/topic-extractor.js';
+import { createTopicService, type TopicWithScope } from '../../services/topic/index.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('memory-quickstart');
 
 function isSessionStale(
   session: { startedAt: string; metadata?: Record<string, unknown> | null },
@@ -45,6 +52,39 @@ function isSessionStale(
   }
 
   return new Date(session.startedAt).getTime() < staleThreshold;
+}
+
+function getSessionNameSimilarity(name1: string | null, name2: string | null): number {
+  if (!name1 || !name2) return 0;
+  const s1 = name1.toLowerCase().trim();
+  const s2 = name2.toLowerCase().trim();
+  if (s1 === s2) return 1;
+  const maxLen = Math.max(s1.length, s2.length);
+  if (maxLen === 0) return 1;
+  const distance = levenshteinDistance(s1, s2);
+  return 1 - distance / maxLen;
+}
+
+const REACTIVATION_WINDOW_MS = 24 * 60 * 60 * 1000;
+const SESSION_SIMILARITY_THRESHOLD = 0.8;
+
+function findReactivatableSession(
+  sessions: Session[],
+  targetName: string,
+  maxAgeMs: number = REACTIVATION_WINDOW_MS
+): Session | null {
+  const now = Date.now();
+  for (const session of sessions) {
+    const endedAt = session.endedAt ? new Date(session.endedAt).getTime() : 0;
+    const age = now - endedAt;
+    if (age > maxAgeMs) continue;
+
+    const similarity = getSessionNameSimilarity(session.name, targetName);
+    if (similarity >= SESSION_SIMILARITY_THRESHOLD) {
+      return session;
+    }
+  }
+  return null;
 }
 
 export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
@@ -109,9 +149,16 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       description:
         'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
     },
+    // Topic auto-creation
+    userMessage: {
+      type: 'string',
+      description:
+        'User message to extract topic from. If provided, auto-creates/resumes topic via LLM extraction.',
+    },
   },
   contextHandler: async (ctx, args) => {
-    const sessionName = args?.sessionName as string | undefined;
+    let sessionName = args?.sessionName as string | undefined;
+    const userMessage = args?.userMessage as string | undefined;
     const sessionPurpose = args?.sessionPurpose as string | undefined;
     let projectId = args?.projectId as string | undefined;
     let agentId = (args?.agentId as string | undefined) ?? 'claude-code';
@@ -145,6 +192,12 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
     const autoEpisode = (args?.autoEpisode as boolean) ?? true;
 
     const mintoStyle = (args?.mintoStyle as boolean) ?? true;
+
+    // Generate date-based session name if not provided
+    if (!sessionName) {
+      const today = new Date().toISOString().split('T')[0];
+      sessionName = `Session ${today}`;
+    }
 
     let projectAction: 'created' | 'exists' | 'none' | 'error' = 'none';
     let createdProjectName: string | null = null;
@@ -261,14 +314,13 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
-    // Step 4: Optionally start session (or resume existing active session)
+    // Step 4: Optionally start session (or resume/reactivate existing session)
     let sessionResult: Record<string, unknown> | null = null;
-    let sessionAction: 'created' | 'resumed' | 'none' | 'error' = 'none';
+    let sessionAction: 'created' | 'resumed' | 'reactivated' | 'none' | 'error' = 'none';
     let existingSessionName: string | null = null;
 
     if (sessionName && detectedProjectId) {
       try {
-        // Check for existing active session in this project
         const activeSessions = await ctx.repos.sessions.list(
           { projectId: detectedProjectId, status: 'active' },
           { limit: 1 }
@@ -287,23 +339,63 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
           sessionAction = 'resumed';
         } else {
           if (existingSession) {
-            await ctx.repos.sessions.end(existingSession.id, 'completed');
+            await endSessionWithCleanup(
+              ctx,
+              existingSession.id,
+              'completed',
+              'quickstart_new_session'
+            );
           }
-          // Create new session
-          const sessionParams: SessionStartParams = {
-            projectId: detectedProjectId,
-            name: sessionName,
-            purpose: sessionPurpose,
-            agentId,
-          };
-          sessionResult = (await scopeHandlers.sessionStart(ctx, sessionParams)) as Record<
-            string,
-            unknown
-          >;
-          sessionAction = 'created';
+
+          // Check for recent completed sessions with similar names to reactivate
+          const recentCompletedSessions = await ctx.repos.sessions.list(
+            { projectId: detectedProjectId, status: 'completed' },
+            { limit: 10 }
+          );
+
+          const reactivatable = findReactivatableSession(recentCompletedSessions, sessionName);
+
+          if (reactivatable) {
+            const reactivatedSession = await ctx.repos.sessions.reactivate(reactivatable.id);
+            if (reactivatedSession) {
+              existingSessionName = reactivatable.name ?? null;
+              sessionResult = {
+                success: true,
+                session: reactivatedSession,
+                reactivated: true,
+                previousSessionId: reactivatable.id,
+              };
+              sessionAction = 'reactivated';
+
+              // Also reactivate cancelled episodes for this session
+              if (ctx.repos.episodes) {
+                const cancelledEpisodes = await ctx.repos.episodes.list(
+                  { sessionId: reactivatable.id, status: 'cancelled' },
+                  { limit: 1 }
+                );
+                const lastCancelled = cancelledEpisodes[0];
+                if (lastCancelled) {
+                  await ctx.repos.episodes.reactivate(lastCancelled.id);
+                }
+              }
+            }
+          }
+
+          if (sessionAction !== 'reactivated') {
+            const sessionParams: SessionStartParams = {
+              projectId: detectedProjectId,
+              name: sessionName,
+              purpose: sessionPurpose,
+              agentId,
+            };
+            sessionResult = (await scopeHandlers.sessionStart(ctx, sessionParams)) as Record<
+              string,
+              unknown
+            >;
+            sessionAction = 'created';
+          }
         }
       } catch (error) {
-        // Session start failed, include error in response but don't fail the whole call
         sessionResult = {
           error: 'Failed to start session',
           message: error instanceof Error ? error.message : String(error),
@@ -388,6 +480,42 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // Handle topic creation/resumption from user message
+    let activeTopic: TopicWithScope | undefined;
+    let topicAction: 'created' | 'resumed' | 'none' = 'none';
+    if (userMessage && detectedProjectId && ctx.repos.topics) {
+      try {
+        const topicName = await extractTopicName(userMessage);
+        logger.debug({ topicName, userMessage: userMessage.slice(0, 100) }, 'Extracted topic name');
+
+        const topicService = createTopicService({ topicRepo: ctx.repos.topics });
+        const similarTopics = await topicService.findSimilar(topicName, 0.8);
+
+        if (similarTopics.length > 0 && similarTopics[0]) {
+          activeTopic = similarTopics[0];
+          topicAction = 'resumed';
+          logger.debug(
+            { topicId: activeTopic.id, similarity: similarTopics[0].similarity },
+            'Resumed existing topic'
+          );
+        } else {
+          activeTopic = await topicService.create({
+            scopeType: 'project',
+            scopeId: detectedProjectId,
+            name: topicName,
+            createdBy: agentId,
+          });
+          topicAction = 'created';
+          logger.debug({ topicId: activeTopic.id, topicName }, 'Created new topic');
+        }
+      } catch (error) {
+        logger.warn(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Topic extraction/creation failed (non-fatal)'
+        );
+      }
+    }
+
     // Fetch or auto-create episode for the session
     let activeEpisode: { id: string; name: string; status: string } | null = null;
     let episodeAction: 'exists' | 'created' | 'none' = 'none';
@@ -421,12 +549,12 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             type: triggerMatch.triggerType,
             confidence: triggerMatch.confidence,
           };
-          // Create and start episode
           const createdEpisode = await ctx.services.episode.create({
             sessionId,
             projectId: detectedProjectId,
             scopeType: detectedProjectId ? 'project' : 'session',
             scopeId: detectedProjectId ?? sessionId,
+            topicId: activeTopic?.id,
             name: sessionName,
             triggerType: 'auto_detection',
             triggerRef: triggerMatch.triggerType ?? 'session_start',
@@ -434,7 +562,7 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
               autoCreated: true,
               triggerPatterns: triggerMatch.matchedPatterns,
               triggerConfidence: triggerMatch.confidence,
-              zeroFriction: true, // Flag indicating this was auto-created without pattern match
+              zeroFriction: true,
             },
           });
           // Start the episode immediately
@@ -657,7 +785,8 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
       projectName: detectedProjectName,
       session: {
         name: effectiveSessionName,
-        status: sessionAction === 'created' ? 'active' : sessionAction,
+        status:
+          sessionAction === 'created' || sessionAction === 'reactivated' ? 'active' : sessionAction,
       },
       episode: activeEpisode
         ? {
@@ -757,6 +886,14 @@ export const memoryQuickstartDescriptor: SimpleToolDescriptor = {
             }
           : undefined,
         episodeAction,
+        activeTopic: activeTopic
+          ? {
+              id: activeTopic.id,
+              name: activeTopic.name,
+              status: activeTopic.status,
+            }
+          : undefined,
+        topicAction,
         conversationId,
         conversationAction,
         transcript: transcriptResult

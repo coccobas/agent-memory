@@ -100,6 +100,7 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
           projectId: input.projectId,
           sessionId: input.sessionId,
           conversationId: input.conversationId,
+          topicId: input.topicId,
           name: input.name,
           description: input.description,
           status: 'planned',
@@ -414,6 +415,47 @@ export function createEpisodeRepository(deps: DatabaseDeps): IEpisodeRepository 
           throw createNotFoundError('episode', id);
         }
         return result;
+      });
+    },
+
+    async reactivate(id: string): Promise<EpisodeWithEvents | undefined> {
+      return await transactionWithRetry(sqlite, () => {
+        const existing = getByIdSync(id);
+        if (!existing) {
+          return undefined;
+        }
+
+        if (existing.status !== 'cancelled') {
+          return undefined;
+        }
+
+        const now = new Date().toISOString();
+
+        db.update(episodes)
+          .set({
+            status: 'active',
+            outcome: null,
+            outcomeType: null,
+            endedAt: null,
+            durationMs: null,
+          })
+          .where(eq(episodes.id, id))
+          .run();
+
+        const eventId = generateId();
+        const seqNum = getNextSequenceNum(id);
+        const event: NewEpisodeEvent = {
+          id: eventId,
+          episodeId: id,
+          eventType: 'started',
+          name: 'Episode reactivated',
+          description: 'Session resumed - episode reactivated',
+          occurredAt: now,
+          sequenceNum: seqNum,
+        };
+        db.insert(episodeEvents).values(event).run();
+
+        return getByIdSync(id, true);
       });
     },
 

@@ -25,6 +25,7 @@ export interface CreateEpisodeInput {
   projectId?: string;
   sessionId?: string;
   conversationId?: string;
+  topicId?: string;
   name: string;
   description?: string;
   parentEpisodeId?: string;
