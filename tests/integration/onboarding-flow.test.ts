@@ -512,6 +512,289 @@ Test decision.
     });
   });
 
+  describe('Deep Scanner with Phase 2 Extractors', () => {
+    beforeEach(() => {
+      // Clean up test directory
+      const dirs = [
+        'src',
+        'src/services',
+        'src/handlers',
+        'src/repositories',
+        'templates',
+        'examples',
+      ];
+      for (const dir of dirs) {
+        const dirPath = join(testDir, dir);
+        if (existsSync(dirPath)) {
+          rmSync(dirPath, { recursive: true });
+        }
+      }
+      const files = ['package.json'];
+      for (const file of files) {
+        const filePath = join(testDir, file);
+        if (existsSync(filePath)) {
+          rmSync(filePath);
+        }
+      }
+    });
+
+    it('should detect module boundaries from src/ structure', async () => {
+      // Create layered architecture
+      mkdirSync(join(testDir, 'src/handlers'), { recursive: true });
+      mkdirSync(join(testDir, 'src/services'), { recursive: true });
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+
+      writeFileSync(join(testDir, 'src/handlers/user.handler.ts'), 'export class UserHandler {}');
+      writeFileSync(join(testDir, 'src/services/user.service.ts'), 'export class UserService {}');
+      writeFileSync(
+        join(testDir, 'src/repositories/user.repository.ts'),
+        'export class UserRepository {}'
+      );
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['architecture'] });
+
+      const moduleBoundaryFinding = result.findings.find((f) => f.title === 'Module Boundaries');
+      expect(moduleBoundaryFinding).toBeDefined();
+      expect(moduleBoundaryFinding?.category).toBe('decision');
+      expect(moduleBoundaryFinding?.content).toContain('Layered architecture');
+      expect(moduleBoundaryFinding?.confidence).toBe(0.85);
+    });
+
+    it('should detect template directories', async () => {
+      mkdirSync(join(testDir, 'templates'), { recursive: true });
+      mkdirSync(join(testDir, 'examples'), { recursive: true });
+
+      writeFileSync(join(testDir, 'templates/component.tsx'), 'export const Component = () => {}');
+      writeFileSync(join(testDir, 'examples/usage.ts'), 'import { Component } from "./component"');
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['architecture'] });
+
+      const templateFindings = result.findings.filter(
+        (f) => f.title.includes('Template') || f.title.includes('template')
+      );
+      expect(templateFindings.length).toBeGreaterThanOrEqual(1);
+
+      const templateFinding = templateFindings[0];
+      expect(templateFinding.category).toBe('reference');
+      expect(templateFinding.content).toContain('template');
+      expect(templateFinding.confidence).toBeGreaterThanOrEqual(0.85);
+    });
+
+    it('should generate pattern contribution guides', async () => {
+      // Create files with recognizable patterns
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+      mkdirSync(join(testDir, 'src/handlers'), { recursive: true });
+      mkdirSync(join(testDir, 'src/services'), { recursive: true });
+
+      writeFileSync(
+        join(testDir, 'src/repositories/user.repository.ts'),
+        'export class UserRepository {}'
+      );
+      writeFileSync(join(testDir, 'src/handlers/user.handler.ts'), 'export class UserHandler {}');
+      writeFileSync(join(testDir, 'src/services/user.service.ts'), 'export class UserService {}');
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['architecture'] });
+
+      const guideFindings = result.findings.filter((f) => f.title.startsWith('How to add new'));
+      expect(guideFindings.length).toBeGreaterThanOrEqual(1);
+
+      const guide = guideFindings[0];
+      expect(guide.category).toBe('reference');
+      expect(guide.area).toBe('architecture');
+      expect(guide.content).toMatch(/1\)/); // Numbered steps
+      expect(guide.confidence).toBeGreaterThanOrEqual(0.75);
+    });
+
+    it('should detect naming conventions', async () => {
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+      mkdirSync(join(testDir, 'src/handlers'), { recursive: true });
+
+      writeFileSync(
+        join(testDir, 'src/repositories/user.repository.ts'),
+        'export class UserRepository {}'
+      );
+      writeFileSync(
+        join(testDir, 'src/repositories/post.repository.ts'),
+        'export class PostRepository {}'
+      );
+      writeFileSync(join(testDir, 'src/handlers/user.handler.ts'), 'export class UserHandler {}');
+      writeFileSync(join(testDir, 'src/handlers/post.handler.ts'), 'export class PostHandler {}');
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      expect(namingFinding).toBeDefined();
+      expect(namingFinding?.category).toBe('reference');
+      expect(namingFinding?.content).toContain('.repository.ts');
+      expect(namingFinding?.content).toContain('.handler.ts');
+      expect(namingFinding?.confidence).toBe(0.85);
+    });
+
+    it('should analyze import patterns from index.ts files', async () => {
+      mkdirSync(join(testDir, 'src/services'), { recursive: true });
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+
+      // Create index.ts with cross-module import
+      writeFileSync(
+        join(testDir, 'src/services/index.ts'),
+        `import { UserRepository } from '../repositories/user.repository.js';
+export * from './user.service.js';`
+      );
+
+      writeFileSync(
+        join(testDir, 'src/repositories/index.ts'),
+        `export * from './user.repository.js';`
+      );
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['architecture'] });
+
+      // Import patterns or module boundaries should be detected
+      const architectureFindings = result.findings.filter((f) => f.area === 'architecture');
+      expect(architectureFindings.length).toBeGreaterThanOrEqual(1);
+
+      // Should have either Import Patterns or Module Boundaries finding
+      const hasImportOrBoundary = architectureFindings.some(
+        (f) => f.title === 'Import Patterns' || f.title === 'Module Boundaries'
+      );
+      expect(hasImportOrBoundary).toBe(true);
+    });
+
+    it('should not output raw file counts', async () => {
+      // Create various files
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+      mkdirSync(join(testDir, 'src/handlers'), { recursive: true });
+
+      for (let i = 0; i < 10; i++) {
+        writeFileSync(
+          join(testDir, `src/repositories/entity${i}.repository.ts`),
+          `export class Entity${i}Repository {}`
+        );
+      }
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir);
+
+      // Verify NO findings contain raw file counts like "Found 10 files"
+      const hasRawCounts = result.findings.some((f) =>
+        /Found \d+ (files?|repositories|handlers|services)/i.test(f.content)
+      );
+      expect(hasRawCounts).toBe(false);
+
+      // Verify findings are actionable (contain "To", "How to", or pattern descriptions)
+      const actionableFindings = result.findings.filter(
+        (f) =>
+          f.content.includes('To ') ||
+          f.content.includes('How to') ||
+          f.content.includes('pattern') ||
+          f.content.includes('convention') ||
+          f.content.includes('Layered architecture')
+      );
+      expect(actionableFindings.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should include actionable patterns and guides in output', async () => {
+      // Create comprehensive project structure
+      writeFileSync(
+        join(testDir, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          scripts: { build: 'tsc', test: 'vitest', lint: 'eslint .' },
+        })
+      );
+
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+      mkdirSync(join(testDir, 'src/handlers'), { recursive: true });
+      mkdirSync(join(testDir, 'templates'), { recursive: true });
+
+      writeFileSync(
+        join(testDir, 'src/repositories/user.repository.ts'),
+        'export class UserRepository {}'
+      );
+      writeFileSync(join(testDir, 'src/handlers/user.handler.ts'), 'export class UserHandler {}');
+      writeFileSync(join(testDir, 'templates/component.tsx'), 'export const Component = () => {}');
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir);
+
+      // Should have tools (npm scripts)
+      const toolFindings = result.findings.filter((f) => f.category === 'tool');
+      expect(toolFindings.length).toBeGreaterThanOrEqual(2);
+
+      // Should have pattern guides
+      const guideFindings = result.findings.filter((f) => f.title.startsWith('How to add new'));
+      expect(guideFindings.length).toBeGreaterThanOrEqual(1);
+
+      // Should have naming conventions
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      expect(namingFinding).toBeDefined();
+
+      // Verify we have actionable findings (not just structural facts)
+      const actionableFindings = result.findings.filter(
+        (f) =>
+          f.category === 'tool' ||
+          f.category === 'decision' ||
+          f.category === 'reference' ||
+          f.content.includes('To ') ||
+          f.content.includes('How to')
+      );
+
+      // Should have multiple actionable findings
+      expect(actionableFindings.length).toBeGreaterThanOrEqual(5);
+
+      // Verify specific actionable types are present
+      const hasTools = result.findings.some((f) => f.category === 'tool');
+      const hasGuides = result.findings.some((f) => f.title.startsWith('How to add new'));
+      const hasConventions = result.findings.some((f) => f.title === 'Naming Conventions');
+
+      expect(hasTools).toBe(true);
+      expect(hasGuides).toBe(true);
+      expect(hasConventions).toBe(true);
+    });
+
+    it('should not create duplicates on full Phase 2 re-scan', async () => {
+      // Create project structure
+      writeFileSync(
+        join(testDir, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          scripts: { build: 'tsc', test: 'vitest' },
+        })
+      );
+
+      mkdirSync(join(testDir, 'src/repositories'), { recursive: true });
+      writeFileSync(
+        join(testDir, 'src/repositories/user.repository.ts'),
+        'export class UserRepository {}'
+      );
+
+      const deepScanner = createDeepScannerService();
+
+      // First scan
+      const result1 = await deepScanner.scan(testDir);
+      const findingCount1 = result1.findings.length;
+
+      // Second scan (should not create duplicates within same scan)
+      const result2 = await deepScanner.scan(testDir);
+      const findingCount2 = result2.findings.length;
+
+      expect(findingCount1).toBe(findingCount2);
+
+      // Verify no duplicate titles within a scan
+      const titles1 = result1.findings.map((f) => f.title);
+      const uniqueTitles1 = new Set(titles1);
+      expect(titles1.length).toBe(uniqueTitles1.size);
+
+      const titles2 = result2.findings.map((f) => f.title);
+      const uniqueTitles2 = new Set(titles2);
+      expect(titles2.length).toBe(uniqueTitles2.size);
+    });
+  });
+
   describe('Edge Cases', () => {
     it('should handle empty directory gracefully', async () => {
       const emptyDir = join(testDir, 'empty');

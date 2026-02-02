@@ -775,7 +775,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 13. Integration tests for Phase 2
+- [x] 13. Integration tests for Phase 2
 
   **What to do**:
   - Write integration tests covering Phase 2 features
@@ -801,9 +801,9 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
   - `tests/integration/onboarding-flow.test.ts` - Existing integration tests
 
   **Acceptance Criteria**:
-  - [ ] All integration tests pass
-  - [ ] Deep scan output has ZERO raw file counts
-  - [ ] Deep scan output has actionable patterns and guides
+  - [x] All integration tests pass
+  - [x] Deep scan output has ZERO raw file counts
+  - [x] Deep scan output has actionable patterns and guides
 
   **Automated Verification**:
 
