@@ -188,7 +188,7 @@ export interface CreateGraphNodeInput {
   /** Link to original entry (for bidirectional mapping) */
   entryId?: string;
   /** Type of the linked entry */
-  entryType?: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task' | 'episode';
+  entryType?: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task' | 'episode' | 'topic';
   createdBy?: string;
 }
 
@@ -266,7 +266,7 @@ export interface INodeRepository {
    * @throws {AgentMemoryError} E4000 - Database operation failed
    */
   getByEntry(
-    entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task' | 'episode',
+    entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'task' | 'episode' | 'topic',
     entryId: string
   ): Promise<GraphNodeWithVersion | undefined>;
 

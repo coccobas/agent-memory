@@ -60,6 +60,7 @@ import { createExperienceRepository } from '../../src/db/repositories/experience
 import { createTaskRepository } from '../../src/db/repositories/tasks.js';
 import { createEvidenceRepository } from '../../src/db/repositories/evidence.js';
 import { createEpisodeRepository } from '../../src/db/repositories/episodes.js';
+import { createTopicRepository } from '../../src/db/repositories/topics.js';
 import { PermissionService, type ParentScopeValue } from '../../src/services/permission.service.js';
 import { VerificationService } from '../../src/services/verification.service.js';
 import { createExperiencePromotionService } from '../../src/services/experience/index.js';
@@ -104,6 +105,7 @@ export function createTestRepositories(testDb: TestDb): Repositories {
     tasks: createTaskRepository(dbDeps),
     evidence: createEvidenceRepository(dbDeps),
     episodes: createEpisodeRepository(dbDeps),
+    topics: createTopicRepository(dbDeps),
   };
 }
 

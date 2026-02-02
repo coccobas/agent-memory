@@ -294,7 +294,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ### Phase 2: Repository Layer
 
-- [ ] 4. Implement topic repository (GREEN)
+- [x] 4. Implement topic repository (GREEN)
 
   **What to do**:
   - Create `src/db/repositories/topics.ts`
@@ -334,7 +334,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 5. Write topic service tests (RED)
+- [x] 5. Write topic service tests (RED)
 
   **What to do**:
   - Create `src/services/topic/__tests__/topic.service.test.ts`
@@ -372,7 +372,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 6. Write LLM topic extraction tests (RED)
+- [x] 6. Write LLM topic extraction tests (RED)
 
   **What to do**:
   - Create `src/services/extraction/__tests__/topic-extraction.test.ts`

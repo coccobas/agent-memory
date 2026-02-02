@@ -28,7 +28,7 @@ const logger = createComponentLogger('graph-sync');
  */
 export interface EntrySyncMetadata {
   /** Entry type (maps to node type) */
-  entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'episode';
+  entryType: 'knowledge' | 'guideline' | 'tool' | 'experience' | 'episode' | 'topic';
   /** Entry ID (used as entry_id on node) */
   entryId: string;
   /** Entry name/title */

@@ -9,6 +9,8 @@ import type {
   EpisodeEvent,
   EpisodeStatus,
   EpisodeOutcomeType,
+  Topic,
+  TopicStatus,
   ScopeType,
 } from '../../../db/schema.js';
 import type { PaginationOptions } from '../../../db/repositories/base.js';
@@ -194,6 +196,15 @@ export interface IEpisodeRepository {
    */
   cancel(id: string, reason?: string): Promise<EpisodeWithEvents>;
 
+  /**
+   * Reactivate a cancelled episode (cancelled → active).
+   * Used when resuming a session that was previously timed out.
+   * @param id - Episode ID
+   * @returns Reactivated episode, or undefined if not found/not cancelled
+   * @throws {AgentMemoryError} E4000 - Database operation failed
+   */
+  reactivate(id: string): Promise<EpisodeWithEvents | undefined>;
+
   // Event tracking
 
   /**
@@ -288,4 +299,60 @@ export interface IEpisodeRepository {
    * @throws {AgentMemoryError} E4000 - Database operation failed
    */
   getAncestors(episodeId: string): Promise<Episode[]>;
+}
+
+// =============================================================================
+// TOPIC REPOSITORY (Persistent Work Context)
+// =============================================================================
+
+export interface CreateTopicInput {
+  scopeType: ScopeType;
+  scopeId?: string;
+  name: string;
+  description?: string;
+  status?: TopicStatus;
+  embedding?: number[];
+  metadata?: Record<string, unknown>;
+  createdBy?: string;
+}
+
+export interface UpdateTopicInput {
+  name?: string;
+  description?: string;
+  status?: TopicStatus;
+  embedding?: number[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface ListTopicsFilter {
+  scopeType?: ScopeType;
+  scopeId?: string;
+  status?: TopicStatus;
+  includeInactive?: boolean;
+}
+
+export interface TopicWithScope extends Omit<
+  Topic,
+  'metadata' | 'embedding' | 'description' | 'createdAt' | 'updatedAt'
+> {
+  scopeType: ScopeType;
+  scopeId?: string;
+  metadata?: Record<string, unknown>;
+  embedding?: number[];
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TopicWithSimilarity extends TopicWithScope {
+  similarity?: number;
+}
+
+export interface ITopicRepository {
+  create(input: CreateTopicInput): Promise<TopicWithScope>;
+  getById(id: string): Promise<TopicWithScope | undefined>;
+  list(filter?: ListTopicsFilter, options?: PaginationOptions): Promise<TopicWithScope[]>;
+  update(id: string, input: UpdateTopicInput): Promise<TopicWithScope | undefined>;
+  deactivate(id: string): Promise<boolean>;
+  findSimilar(query: string, threshold?: number): Promise<TopicWithSimilarity[]>;
 }

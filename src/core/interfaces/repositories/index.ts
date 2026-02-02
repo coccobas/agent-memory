@@ -52,7 +52,7 @@ import type {
 } from './memory-entries.js';
 import type { IConversationRepository } from './conversations.js';
 import type { ITypeRegistry, INodeRepository, IEdgeRepository } from './knowledge-graph.js';
-import type { IEpisodeRepository } from './temporal.js';
+import type { IEpisodeRepository, ITopicRepository } from './temporal.js';
 import type { IIDETranscriptRepository } from './ide-transcripts.js';
 import type {
   IAnalyticsRepository,
@@ -93,6 +93,8 @@ export interface Repositories {
   evidence?: IEvidenceRepository;
   // Episode repository (Temporal Activity Grouping)
   episodes?: IEpisodeRepository;
+  // Topic repository (Persistent Work Context)
+  topics?: ITopicRepository;
   // Hook metrics repository (Claude Code hook analytics)
   hookMetrics?: IHookMetricsRepository;
   // IDE Transcripts (Immutable conversation archive)

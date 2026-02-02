@@ -117,7 +117,7 @@ export const nodes = sqliteTable(
     entryId: text('entry_id'),
     /** Type of the linked entry */
     entryType: text('entry_type', {
-      enum: ['knowledge', 'guideline', 'tool', 'experience', 'task', 'episode'],
+      enum: ['knowledge', 'guideline', 'tool', 'experience', 'task', 'episode', 'topic'],
     }),
     createdAt: text('created_at')
       .default(sql`CURRENT_TIMESTAMP`)
