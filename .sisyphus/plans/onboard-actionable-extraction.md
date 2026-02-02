@@ -72,10 +72,10 @@ Transform deep scan output from structural facts to actionable contribution patt
 
 ### Definition of Done
 
-- [ ] `bun test tests/unit/onboarding/` - All tests pass (0 failures)
-- [ ] `bun test tests/integration/onboarding-flow.test.ts` - Integration tests verify no raw file counts in output
-- [ ] Integration tests verify actionable "To do X, run Y" patterns are present
-- [ ] Schema supports `'tool'` category for findings
+- [x] `bun test tests/unit/onboarding/` - All tests pass (0 failures)
+- [x] `bun test tests/integration/onboarding-flow.test.ts` - Integration tests verify no raw file counts in output
+- [x] Integration tests verify actionable "To do X, run Y" patterns are present
+- [x] Schema supports `'tool'` category for findings
 
 **Note**: The `memory_onboard` MCP tool is invoked via MCP protocol, not CLI. All verification uses unit/integration tests that directly call `DeepScannerService.scan()`.
 
@@ -1032,7 +1032,7 @@ bun test tests/integration/onboarding-flow.test.ts -- --grep "actionable"
 
 ### Final Checklist
 
-- [ ] All "Must Have" present (TDD, allowlist, status filter, dedup, no LLM without flag)
-- [ ] All "Must NOT Have" absent (no raw counts, no node_modules, no all-scripts, no verbatim ADR)
-- [ ] All tests pass
-- [ ] Deep scan output is ACTIONABLE (passes usefulness test)
+- [x] All "Must Have" present (TDD, allowlist, status filter, dedup, no LLM without flag)
+- [x] All "Must NOT Have" absent (no raw counts, no node_modules, no all-scripts, no verbatim ADR)
+- [x] All tests pass
+- [x] Deep scan output is ACTIONABLE (passes usefulness test)
