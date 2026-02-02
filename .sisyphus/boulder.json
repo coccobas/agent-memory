@@ -1,8 +1,6 @@
 {
-  "active_plan": "/Users/coccobas/Development/memory/agent-memory/.sisyphus/plans/episode-quality-fixes.md",
-  "started_at": "2026-02-01T01:11:14.466Z",
-  "completed_at": "2026-02-01T02:28:00.000Z",
-  "session_ids": ["ses_3e93efc81ffe2P0FRvulXHTFkh"],
-  "plan_name": "episode-quality-fixes",
-  "status": "completed"
+  "active_plan": "/Users/coccobas/Development/memory/agent-memory/.sisyphus/plans/topic-hierarchy.md",
+  "started_at": "2026-02-02T12:04:14.660Z",
+  "session_ids": ["ses_3e1c2c8e7ffeTRtZs5rmMxxHIN"],
+  "plan_name": "topic-hierarchy"
 }
