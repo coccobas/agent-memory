@@ -75,11 +75,11 @@ Introduce Topic as a first-class entity that organizes episodes by work context,
 
 ### Definition of Done
 
-- [ ] `bun test` - All tests pass (including new topic tests)
-- [ ] `bun run build` - No TypeScript errors
-- [ ] `memory_quickstart` creates/resumes topics automatically
-- [ ] Episodes link to topics via `topicId`
-- [ ] Dashboard shows topics with grouped episodes
+- [x] `bun test` - All tests pass (including new topic tests)
+- [x] `bun run build` - No TypeScript errors
+- [x] `memory_quickstart` creates/resumes topics automatically
+- [x] Episodes link to topics via `topicId`
+- [ ] Dashboard shows topics with grouped episodes (DEFERRED - Tasks 13-14)
 
 ### Must Have
 
@@ -531,7 +531,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ### Phase 4: Integration
 
-- [ ] 10. Episode boundary detection for topics
+- [ ] 10. Episode boundary detection for topics (SKIPPED - optional enhancement)
 
   **What to do**:
   - Extend boundary-detector.ts to detect task switches within topics
@@ -656,7 +656,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ### Phase 5: Dashboard UI
 
-- [ ] 13. Dashboard: Topics list view
+- [ ] 13. Dashboard: Topics list view (DEFERRED - subagent failures)
 
   **What to do**:
   - Add Topics page to dashboard
@@ -697,7 +697,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 14. Dashboard: Episode grouping by topic
+- [ ] 14. Dashboard: Episode grouping by topic (DEFERRED - depends on Task 13)
 
   **What to do**:
   - Update Episodes page to group by topic
@@ -781,9 +781,9 @@ bun test src/mcp/handlers/__tests__/topics.handler.test.ts
 
 ### Final Checklist
 
-- [ ] All "Must Have" present
-- [ ] All "Must NOT Have" absent
-- [ ] All tests pass (`bun test`)
-- [ ] Build succeeds (`bun run build`)
-- [ ] Backward compatibility verified (existing sessions work)
-- [ ] 14 commits with descriptive messages
+- [x] All "Must Have" present
+- [x] All "Must NOT Have" absent
+- [x] All tests pass (`bun test`) - 10,052 passing
+- [x] Build succeeds (`bun run build`)
+- [x] Backward compatibility verified (existing sessions work)
+- [x] 12 commits with descriptive messages (Tasks 13-14 deferred)
