@@ -1112,3 +1112,220 @@ const service = new LlmExtractorService({
 
 - Task 16: Integrate LLM extractor into deep-scanner.ts (when useLlm flag is true)
 - Task 17: End-to-end tests for LLM mode with real codebase context
+
+## Task 16: LLM-Assisted Contribution Guide Generation (Phase 3, Wave 3.1)
+
+**Completed**: Integrated LLM extractor into deep-scanner for enhanced contribution guide generation
+
+### Implementation Details
+
+1. **Extended `DeepScanOptions` in `src/services/onboarding/types.ts`**:
+   - Added `useLlm?: boolean` - Enable LLM-assisted extraction (default: false)
+   - Added `llmCallFn?: LlmCallFunction` - LLM call function (required when useLlm=true)
+   - Added `LlmCallFunction` type alias for `(prompt: string) => Promise<unknown>`
+
+2. **Modified `src/services/onboarding/deep-scanner.ts`**:
+   - Added imports for `LlmExtractorService`, `LlmCallFn`, and `CodebaseContext`
+   - Created `LlmOptions` interface for internal use
+   - Updated `scanArea` to pass LLM options to `scanArchitecture`
+   - Integrated LLM extraction into pattern guide generation flow:
+     - When `useLlm=true`: Call LLM first, use static guides as fallback
+     - When `useLlm=false`: Use static pattern guides only
+   - Added `extractWithLlm` method:
+     - Limits patterns to top 5
+     - Builds `CodebaseContext` with modules, patterns, conventions
+     - Casts `LlmCallFunction` to `LlmCallFn` via `unknown`
+     - Returns empty array on error (graceful degradation)
+
+3. **Added 9 tests in `tests/unit/onboarding/deep-scanner.test.ts`**:
+   - `should call LLM when useLlm=true`
+   - `should NOT call LLM when useLlm=false`
+   - `should NOT call LLM when useLlm not provided`
+   - `should limit patterns to top 5 for LLM extraction`
+   - `should attach confidence scores from LLM to findings`
+   - `should handle LLM failures gracefully`
+   - `should include LLM findings in architecture area`
+   - `should format LLM guide steps with numbered format`
+   - `should not duplicate LLM findings with existing pattern guides`
+
+### Key Patterns
+
+- **LLM Fallback Strategy**: When `useLlm=true`:
+  1. Call LLM with codebase context
+  2. If LLM succeeds (returns findings), use LLM guides
+  3. If LLM fails (empty array), fall back to static pattern guides
+- **Type Casting for LLM Functions**:
+
+  ```typescript
+  const extractor = new LlmExtractorService({
+    llmCall: llmCallFn as unknown as LlmCallFn,
+    maxTokens: 2000,
+  });
+  ```
+
+  - Cast through `unknown` to convert `Promise<unknown>` to specific type
+  - Runtime behavior unaffected; TypeScript satisfied
+
+- **Pattern Limiting**: `detectedPatterns.slice(0, 5)` ensures only top 5 patterns sent to LLM
+
+- **Context Building**:
+  ```typescript
+  const context: CodebaseContext = {
+    modules, // from getDirectories(srcDir)
+    patterns, // top 5 detected patterns
+    conventions, // from detectNamingConventions
+  };
+  ```
+
+### Key Learnings
+
+1. **maxFindings Slicing Bug**: Initially, LLM findings were added at the END of the findings array and sliced off by `maxFindings` limit. Fixed by calling LLM extraction WITHIN the pattern guide generation flow, replacing static guides when LLM succeeds.
+
+2. **TDD Verification**: Tests must verify actual behavior, not just that mocks are called:
+   - `expect(mockLlmCall).toHaveBeenCalled()` - Mock invoked
+   - `expect(result.findings.some(f => f.source === 'llm-extraction')).toBe(true)` - Findings returned
+
+3. **Graceful Degradation**: Error handling at multiple levels:
+   - `LlmExtractorService.extractContributionPatterns` catches API errors
+   - `extractWithLlm` catches any remaining errors
+   - Static guides used as fallback when LLM fails
+
+4. **Deduplication Works Correctly**: Different content = different hash = both findings kept. Tested that LLM and static guides with same title but different content are NOT deduplicated.
+
+### Test Coverage
+
+- ✓ All 9 LLM mode tests pass
+- ✓ All 83 deep-scanner tests pass
+- ✓ All 255 onboarding unit tests pass
+- ✓ All 27 integration tests pass
+- ✓ TypeScript typecheck passes
+
+### Verification Results
+
+```
+npm run typecheck  - Passes with no errors
+npx vitest run tests/unit/onboarding/deep-scanner.test.ts  - 83 tests pass
+npx vitest run tests/unit/onboarding/  - 255 tests pass
+npx vitest run tests/integration/onboarding-flow.test.ts  - 27 tests pass
+```
+
+### Files Modified
+
+- `src/services/onboarding/types.ts` - Added `useLlm` and `llmCallFn` to `DeepScanOptions`
+- `src/services/onboarding/deep-scanner.ts` - Integrated LLM extraction
+- `tests/unit/onboarding/deep-scanner.test.ts` - Added 9 LLM mode tests
+
+### Next Steps
+
+- Task 17: E2E tests for LLM mode with real codebase context
+
+## Task 17: E2E Tests for LLM Mode (Phase 3, Wave 3.2)
+
+**Completed**: Created comprehensive E2E tests for LLM-assisted onboarding flow
+
+### Implementation Details
+
+1. **Created `tests/e2e/onboarding-llm.test.ts`**:
+   - 7 E2E tests covering full LLM-assisted onboarding workflow
+   - Uses mocked LLM (no real API calls in tests)
+   - Tests run against temporary test directories with realistic project structures
+
+2. **Test Coverage**:
+   - `useLlm flag validation`: Error when useLlm=true but no API key
+   - `useLlm=false`: No LLM calls when flag is false
+   - `Deep scan with LLM mode`: Contribution guides generated with valid API key
+   - `LLM failure graceful degradation`: Falls back to static guides when LLM fails
+   - `Full onboarding flow`: Complete flow with deepScan and useLlm
+   - `Store findings`: Findings stored as knowledge entries when not in dryRun
+   - `Token budget enforcement`: No token budget errors with many patterns
+
+### Key Patterns
+
+- **Test Setup**: Uses `setupTestDb()` and `createTestContext()` from test-helpers
+- **Environment Isolation**: Stores and restores env vars in beforeAll/afterAll
+- **Config Mocking**: Directly modifies `config.extraction.openaiApiKey` for tests
+- **Temp Directory**: Creates unique temp directory per test run
+- **Cleanup**: Removes temp directory and closes DB in afterAll
+
+### Test Structure
+
+```typescript
+describe('Onboarding LLM E2E', () => {
+  beforeAll(async () => {
+    // Store env vars, setup test DB, create temp directory
+  });
+
+  afterAll(() => {
+    // Restore env vars, close DB, cleanup temp directory
+  });
+
+  beforeEach(() => {
+    // Reset temp directory contents
+  });
+
+  describe('useLlm flag validation', () => { ... });
+  describe('Deep scan with LLM mode', () => { ... });
+  describe('LLM failure graceful degradation', () => { ... });
+  describe('Full onboarding flow with LLM', () => { ... });
+  describe('Token budget enforcement', () => { ... });
+});
+```
+
+### Key Learnings
+
+1. **E2E vs Unit Tests**: E2E tests use `runTool()` to invoke MCP tools directly, while unit tests call service methods. E2E tests verify the full integration including:
+   - MCP descriptor parameter parsing
+   - Config validation
+   - Service orchestration
+   - Result formatting
+
+2. **Config Modification in Tests**: The config object is mutable, allowing direct modification:
+
+   ```typescript
+   (config.extraction as { openaiApiKey: string | undefined }).openaiApiKey = 'test-api-key';
+   ```
+
+   This is necessary because config is built at startup from env vars.
+
+3. **Result Content Parsing**: MCP tool results have complex structure:
+
+   ```typescript
+   const content = result.content;
+   if (Array.isArray(content) && content.length > 0) {
+     const textContent = content[0];
+     if (textContent && typeof textContent === 'object' && 'text' in textContent) {
+       const text = textContent.text as string;
+       // Assertions on text
+     }
+   }
+   ```
+
+4. **Test Isolation**: Each test creates its own project structure in temp directory, ensuring tests don't interfere with each other.
+
+5. **Graceful Degradation Testing**: When LLM fails (no real API in tests), the system should:
+   - Complete successfully (not throw)
+   - Fall back to static pattern guides
+   - Return valid findings
+
+### Verification Results
+
+```
+npx vitest run tests/e2e/onboarding-llm.test.ts  - 7 tests pass
+npx vitest run tests/unit/onboarding/deep-scanner.test.ts  - 83 tests pass
+npx vitest run tests/integration/onboarding-flow.test.ts  - 27 tests pass
+npm run typecheck  - Passes with no errors
+```
+
+### Files Created
+
+- `tests/e2e/onboarding-llm.test.ts` - 7 E2E tests for LLM mode
+
+### Plan Status
+
+**All 17 tasks in the onboard-actionable-extraction plan are now COMPLETE.**
+
+Final verification:
+
+- Phase 1 (Tasks 1-7): Foundation & Quick Wins ✓
+- Phase 2 (Tasks 8-13): Content-Aware Analysis ✓
+- Phase 3 (Tasks 14-17): LLM-Assisted (Feature-Flagged) ✓

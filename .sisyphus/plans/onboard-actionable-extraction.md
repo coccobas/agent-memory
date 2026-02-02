@@ -903,7 +903,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 16. LLM-assisted contribution guide generation
+- [x] 16. LLM-assisted contribution guide generation
 
   **What to do**:
   - When `--useLlm` is set, use LLM to generate contribution guides
@@ -932,10 +932,10 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
   - Task 10 output - Non-LLM guides to enhance
 
   **Acceptance Criteria**:
-  - [ ] LLM generates detailed contribution guides
-  - [ ] Limited to top 5 patterns
-  - [ ] Confidence scores attached to findings
-  - [ ] Tests pass with mocked LLM
+  - [x] LLM generates detailed contribution guides
+  - [x] Limited to top 5 patterns
+  - [x] Confidence scores attached to findings
+  - [x] Tests pass with mocked LLM
 
   **Commit**: YES
   - Message: `feat(onboarding): add LLM-assisted contribution guide generation`
@@ -944,7 +944,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 17. End-to-end tests for LLM mode
+- [x] 17. End-to-end tests for LLM mode
 
   **What to do**:
   - Write E2E tests covering full LLM-assisted onboard flow
@@ -972,10 +972,10 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
   - `tests/integration/onboarding-flow.test.ts` - Integration test patterns
 
   **Acceptance Criteria**:
-  - [ ] E2E tests pass with mocked LLM
-  - [ ] Token budget is enforced
-  - [ ] Flag opt-in is verified
-  - [ ] Full flow works: onboard --deepScan --useLlm
+  - [x] E2E tests pass with mocked LLM
+  - [x] Token budget is enforced
+  - [x] Flag opt-in is verified
+  - [x] Full flow works: onboard --deepScan --useLlm
 
   **Automated Verification**:
 

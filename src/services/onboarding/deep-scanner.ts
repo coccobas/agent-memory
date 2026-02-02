@@ -11,15 +11,30 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, basename, extname, relative } from 'node:path';
-import type { DeepScanArea, DeepScanFinding, DeepScanResult, DeepScanOptions } from './types.js';
+import type {
+  DeepScanArea,
+  DeepScanFinding,
+  DeepScanResult,
+  DeepScanOptions,
+  LlmCallFunction,
+} from './types.js';
 import { ScriptExtractorService } from './script-extractor.js';
 import { AdrParserService } from './adr-parser.js';
 import { WorkflowExtractorService } from './workflow-extractor.js';
+import { LlmExtractorService, type LlmCallFn } from './llm-extractor.js';
+import type { CodebaseContext } from '../extraction/prompts.js';
 
-const DEFAULT_OPTIONS: Required<DeepScanOptions> = {
+interface LlmOptions {
+  useLlm: boolean;
+  llmCallFn?: LlmCallFunction;
+}
+
+const DEFAULT_OPTIONS: DeepScanOptions = {
   areas: ['architecture', 'database', 'api', 'testing', 'documentation'],
   maxFindings: 10,
   timeout: 120000,
+  useLlm: false,
+  llmCallFn: undefined,
 };
 
 interface FileInfo {
@@ -40,9 +55,14 @@ export class DeepScannerService implements IDeepScannerService {
   private seenFindings = new Set<string>();
 
   async scan(cwd: string, options?: DeepScanOptions): Promise<DeepScanResult> {
-    // Reset deduplication set for each scan
     this.seenFindings.clear();
-    const opts = { ...DEFAULT_OPTIONS, ...options };
+    const opts = {
+      areas: options?.areas ?? DEFAULT_OPTIONS.areas!,
+      maxFindings: options?.maxFindings ?? DEFAULT_OPTIONS.maxFindings!,
+      timeout: options?.timeout ?? DEFAULT_OPTIONS.timeout!,
+      useLlm: options?.useLlm ?? false,
+      llmCallFn: options?.llmCallFn,
+    };
     const startTime = Date.now();
     const findings: DeepScanFinding[] = [];
     const errors: string[] = [];
@@ -51,7 +71,7 @@ export class DeepScannerService implements IDeepScannerService {
     for (const area of opts.areas) {
       try {
         areasScanned.push(area);
-        const areaFindings = await this.scanArea(cwd, area, opts.maxFindings);
+        const areaFindings = await this.scanArea(cwd, area, opts.maxFindings, opts);
         findings.push(...areaFindings);
       } catch (error) {
         errors.push(`${area}: ${error instanceof Error ? error.message : String(error)}`);
@@ -75,11 +95,12 @@ export class DeepScannerService implements IDeepScannerService {
   private async scanArea(
     cwd: string,
     area: DeepScanArea,
-    maxFindings: number
+    maxFindings: number,
+    llmOpts: LlmOptions
   ): Promise<DeepScanFinding[]> {
     switch (area) {
       case 'architecture':
-        return this.scanArchitecture(cwd, maxFindings);
+        return this.scanArchitecture(cwd, maxFindings, llmOpts);
       case 'database':
         return this.scanDatabase(cwd, maxFindings);
       case 'api':
@@ -93,10 +114,13 @@ export class DeepScannerService implements IDeepScannerService {
     }
   }
 
-  private async scanArchitecture(cwd: string, maxFindings: number): Promise<DeepScanFinding[]> {
+  private async scanArchitecture(
+    cwd: string,
+    maxFindings: number,
+    llmOpts: LlmOptions
+  ): Promise<DeepScanFinding[]> {
     const findings: DeepScanFinding[] = [];
 
-    // Find entry points
     const entryPoints = this.findFiles(cwd, [
       'src/index.ts',
       'src/main.ts',
@@ -116,7 +140,6 @@ export class DeepScannerService implements IDeepScannerService {
       });
     }
 
-    // Detect module structure
     const srcDir = join(cwd, 'src');
     if (existsSync(srcDir)) {
       const topLevelDirs = this.getDirectories(srcDir);
@@ -132,7 +155,6 @@ export class DeepScannerService implements IDeepScannerService {
       }
     }
 
-    // Find core abstractions (interfaces, types)
     const coreDir = join(cwd, 'src/core');
     if (existsSync(coreDir)) {
       const coreFiles = this.getFilesRecursive(coreDir, ['.ts']);
@@ -146,7 +168,6 @@ export class DeepScannerService implements IDeepScannerService {
       });
     }
 
-    // Detect module boundaries (layered architecture)
     const moduleBoundaries = this.detectModuleBoundaries(cwd);
     if (moduleBoundaries) {
       findings.push({
@@ -159,7 +180,6 @@ export class DeepScannerService implements IDeepScannerService {
       });
     }
 
-    // Detect design patterns from file names
     const patterns = this.detectDesignPatterns(cwd);
     if (patterns.length > 0) {
       findings.push({
@@ -170,15 +190,24 @@ export class DeepScannerService implements IDeepScannerService {
         confidence: 0.75,
       });
 
-      const patternGuides = this.generatePatternGuides(patterns);
-      findings.push(...patternGuides);
+      if (llmOpts.useLlm && llmOpts.llmCallFn) {
+        const llmFindings = await this.extractWithLlm(cwd, patterns, llmOpts.llmCallFn);
+        if (llmFindings.length > 0) {
+          findings.push(...llmFindings);
+        } else {
+          const patternGuides = this.generatePatternGuides(patterns);
+          findings.push(...patternGuides);
+        }
+      } else {
+        const patternGuides = this.generatePatternGuides(patterns);
+        findings.push(...patternGuides);
+      }
     }
 
     const packageJsonPath = join(cwd, 'package.json');
     const scriptFindings = await this.scriptExtractor.extractScripts(packageJsonPath);
     findings.push(...scriptFindings);
 
-    // Detect template directories
     const templateDirs = this.findDirectories(cwd, ['templates', 'examples', 'boilerplate']);
     if (templateDirs.length > 0) {
       const dirNames = templateDirs.map((dir) => basename(dir)).join(', ');
@@ -192,7 +221,6 @@ export class DeepScannerService implements IDeepScannerService {
       });
     }
 
-    // Detect template files (*.template.* or *.example.*)
     const templateFiles = this.getFilesRecursive(cwd, []).filter((f) =>
       /\.(template|example)\./.test(f.name)
     );
@@ -214,19 +242,53 @@ export class DeepScannerService implements IDeepScannerService {
       }
     }
 
-    // Detect naming conventions from file patterns
     const namingConvention = this.detectNamingConventions(cwd);
     if (namingConvention) {
       findings.push(namingConvention);
     }
 
-    // Analyze import patterns in index.ts files
     const importPatterns = this.analyzeImportPatterns(cwd);
     if (importPatterns) {
       findings.push(importPatterns);
     }
 
     return this.deduplicateFindings(findings).slice(0, maxFindings);
+  }
+
+  private async extractWithLlm(
+    cwd: string,
+    detectedPatterns: string[],
+    llmCallFn: LlmCallFunction
+  ): Promise<DeepScanFinding[]> {
+    try {
+      const topPatterns = detectedPatterns.slice(0, 5);
+
+      const srcDir = join(cwd, 'src');
+      const modules = existsSync(srcDir) ? this.getDirectories(srcDir) : [];
+
+      const namingConvention = this.detectNamingConventions(cwd);
+      const conventions = namingConvention ? [namingConvention.content] : [];
+
+      const context: CodebaseContext = {
+        modules,
+        patterns: topPatterns,
+        conventions,
+      };
+
+      const extractor = new LlmExtractorService({
+        llmCall: llmCallFn as unknown as LlmCallFn,
+        maxTokens: 2000,
+      });
+      const result = await extractor.extractContributionPatterns(context);
+
+      if (result.success) {
+        return result.findings;
+      }
+
+      return [];
+    } catch {
+      return [];
+    }
   }
 
   private async scanDatabase(cwd: string, maxFindings: number): Promise<DeepScanFinding[]> {

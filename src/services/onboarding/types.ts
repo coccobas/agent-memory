@@ -165,6 +165,8 @@ export interface DeepScanResult {
   errors: string[];
 }
 
+export type LlmCallFunction = (prompt: string) => Promise<unknown>;
+
 /**
  * Deep scan options
  */
@@ -172,6 +174,8 @@ export interface DeepScanOptions {
   areas?: DeepScanArea[]; // Which areas to scan (default: all)
   maxFindings?: number; // Max findings per area (default: 10)
   timeout?: number; // Timeout in ms (default: 120000)
+  useLlm?: boolean; // Enable LLM-assisted extraction (default: false)
+  llmCallFn?: LlmCallFunction; // LLM call function (required when useLlm=true)
 }
 
 /**

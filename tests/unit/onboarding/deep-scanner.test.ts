@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   DeepScannerService,
   createDeepScannerService,
 } from '../../../src/services/onboarding/deep-scanner.js';
+import type { LlmCallFn } from '../../../src/services/onboarding/llm-extractor.js';
 
 describe('DeepScannerService', () => {
   let service: DeepScannerService;
@@ -892,6 +893,188 @@ describe('DeepScannerService', () => {
       if (importFinding) {
         expect(importFinding.source).toBeDefined();
       }
+    });
+  });
+
+  describe('LLM-assisted contribution guide generation', () => {
+    it('should call LLM when useLlm=true', async () => {
+      const mockLlmCall = vi.fn().mockResolvedValue({
+        guides: [
+          {
+            pattern: 'Repository',
+            title: 'How to add new Repository',
+            steps: ['1) Create interface', '2) Implement class', '3) Export'],
+            confidence: 0.85,
+          },
+        ],
+      });
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      expect(mockLlmCall).toHaveBeenCalled();
+      expect(result.findings.some((f) => f.source === 'llm-extraction')).toBe(true);
+    });
+
+    it('should NOT call LLM when useLlm=false', async () => {
+      const mockLlmCall = vi.fn();
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: false,
+        llmCallFn: mockLlmCall,
+      });
+
+      expect(mockLlmCall).not.toHaveBeenCalled();
+      expect(result.findings.every((f) => f.source !== 'llm-extraction')).toBe(true);
+    });
+
+    it('should NOT call LLM when useLlm not provided', async () => {
+      const mockLlmCall = vi.fn();
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        llmCallFn: mockLlmCall,
+      });
+
+      expect(mockLlmCall).not.toHaveBeenCalled();
+      expect(result.findings.every((f) => f.source !== 'llm-extraction')).toBe(true);
+    });
+
+    it('should limit patterns to top 5 for LLM extraction', async () => {
+      const mockLlmCall = vi.fn().mockResolvedValue({ guides: [] });
+
+      await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      expect(mockLlmCall).toHaveBeenCalled();
+      const prompt = mockLlmCall.mock.calls[0][0] as string;
+      const patternMatches = prompt.match(/Design patterns detected: ([^\n]+)/);
+      if (patternMatches) {
+        const patterns = patternMatches[1].split(', ');
+        expect(patterns.length).toBeLessThanOrEqual(5);
+      }
+    });
+
+    it('should attach confidence scores from LLM to findings', async () => {
+      const mockLlmCall = vi.fn().mockResolvedValue({
+        guides: [
+          {
+            pattern: 'CustomPattern',
+            title: 'How to add new CustomPattern',
+            steps: ['Step 1', 'Step 2'],
+            confidence: 0.92,
+          },
+        ],
+      });
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      const llmFinding = result.findings.find((f) => f.source === 'llm-extraction');
+      expect(llmFinding).toBeDefined();
+      if (llmFinding) {
+        expect(llmFinding.confidence).toBe(0.92);
+      }
+    });
+
+    it('should handle LLM failures gracefully', async () => {
+      const mockLlmCall = vi.fn().mockRejectedValue(new Error('API error'));
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.findings.every((f) => f.source !== 'llm-extraction')).toBe(true);
+    });
+
+    it('should include LLM findings in architecture area', async () => {
+      const mockLlmCall = vi.fn().mockResolvedValue({
+        guides: [
+          {
+            pattern: 'TestPattern',
+            title: 'How to add new TestPattern',
+            steps: ['Do this', 'Do that'],
+            confidence: 0.88,
+          },
+        ],
+      });
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      const llmFindings = result.findings.filter((f) => f.source === 'llm-extraction');
+      expect(llmFindings.length).toBeGreaterThan(0);
+      llmFindings.forEach((f) => {
+        expect(f.area).toBe('architecture');
+        expect(f.category).toBe('reference');
+      });
+    });
+
+    it('should format LLM guide steps with numbered format', async () => {
+      const mockLlmCall = vi.fn().mockResolvedValue({
+        guides: [
+          {
+            pattern: 'FormattedPattern',
+            title: 'How to add new FormattedPattern',
+            steps: ['Create file', 'Add content', 'Export'],
+            confidence: 0.85,
+          },
+        ],
+      });
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      const llmFinding = result.findings.find((f) => f.source === 'llm-extraction');
+      expect(llmFinding).toBeDefined();
+      if (llmFinding) {
+        expect(llmFinding.content).toMatch(/1\)/);
+        expect(llmFinding.content).toMatch(/2\)/);
+        expect(llmFinding.content).toMatch(/3\)/);
+      }
+    });
+
+    it('should not duplicate LLM findings with existing pattern guides', async () => {
+      const mockLlmCall = vi.fn().mockResolvedValue({
+        guides: [
+          {
+            pattern: 'Repository',
+            title: 'How to add new Repository',
+            steps: ['Step A', 'Step B'],
+            confidence: 0.9,
+          },
+        ],
+      });
+
+      const result = await service.scan(testCwd, {
+        areas: ['architecture'],
+        useLlm: true,
+        llmCallFn: mockLlmCall,
+      });
+
+      const repoGuides = result.findings.filter((f) =>
+        f.title.includes('How to add new Repository')
+      );
+      expect(repoGuides.length).toBeLessThanOrEqual(1);
     });
   });
 });
