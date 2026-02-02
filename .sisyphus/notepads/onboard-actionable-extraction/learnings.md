@@ -1014,3 +1014,101 @@ Duration    605ms
 - Task 15: Integrate extraction prompts for codebase context (Phase 3, Wave 3.1)
 - Task 16: LLM-assisted contribution guide generation (Phase 3, Wave 3.1)
 - Task 17: End-to-end tests for LLM mode (Phase 3, Wave 3.2)
+
+## Task 15: LLM Extraction Prompts Integration (Phase 3, Wave 3.1)
+
+**Completed**: Created LLM extractor service with codebase-specific prompts and token budget enforcement
+
+### Implementation Details
+
+1. **Added to `src/services/extraction/prompts.ts`**:
+   - `CODEBASE_CONTRIBUTION_SYSTEM_PROMPT` - System prompt for contribution pattern extraction
+   - `CodebaseContext` interface - Input structure for modules, patterns, conventions
+   - `buildCodebaseContributionPrompt()` - Builds user prompt from context
+
+2. **Created `src/services/onboarding/llm-extractor.ts`**:
+   - `LlmExtractorService` class with dependency injection for LLM call function
+   - `estimateTokens()` - Token estimation (4 chars per token)
+   - `buildCodebasePrompt()` - Combines system + user prompts
+   - `extractContributionPatterns()` - Main extraction method with token budget validation
+   - `parseResponse()` - Handles both JSON and string LLM responses
+   - `convertToFindings()` - Converts LLM output to `DeepScanFinding[]`
+
+3. **Created `tests/unit/onboarding/llm-extractor.test.ts`**:
+   - 22 tests covering:
+     - Token budget enforcement (2000 max)
+     - Prompt generation for codebase context
+     - LLM response parsing
+     - Error handling (API failures, network timeouts, invalid JSON)
+     - DeepScanFinding integration
+
+### Key Patterns
+
+- **Dependency Injection**: LLM call function injected via config, enabling easy mocking
+- **Token Budget**: Estimated as `Math.ceil(text.length / 4)` (4 chars per token)
+- **Error Handling**: Token budget errors thrown; API errors returned as `{ success: false, error: ... }`
+- **Response Parsing**: Handles both JSON object and string responses gracefully
+- **Finding Format**: Steps formatted as `1) Step\n2) Step\n3) Step`
+
+### Token Budget Strategy
+
+```typescript
+const DEFAULT_MAX_TOKENS = 2000;
+const CHARS_PER_TOKEN = 4;
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+```
+
+- Budget includes both system prompt and user prompt
+- Validation happens BEFORE LLM call (fail fast)
+- Token budget errors are thrown (not returned as result)
+
+### Test Mocking Pattern
+
+```typescript
+const mockLlmCall = vi.fn().mockResolvedValue({
+  guides: [
+    { pattern: 'Repository', title: 'How to add new Repository', steps: ['...'], confidence: 0.85 },
+  ],
+});
+
+const service = new LlmExtractorService({
+  llmCall: mockLlmCall,
+  maxTokens: 2000,
+});
+```
+
+### Verification Results
+
+- ✓ All 22 LLM extractor tests pass
+- ✓ `npm run typecheck` passes with no errors
+- ✓ LSP diagnostics clean on all changed files
+
+### Key Learnings
+
+1. **TDD Workflow**: Tests define the interface before implementation
+   - Tests written first (RED phase)
+   - Implementation follows tests (GREEN phase)
+   - All 22 tests passed on first implementation attempt
+
+2. **Token Estimation**: Simple char-based estimation works for budget enforcement
+   - 4 chars per token is conservative (actual may be 3-4.5)
+   - Sufficient for preventing obvious budget overruns
+   - Real tokenizer not needed for budget validation
+
+3. **LLM Call Abstraction**: Injecting LLM call function enables:
+   - Easy mocking in tests (no real API calls)
+   - Swappable LLM providers (OpenAI, Anthropic, local)
+   - Configuration flexibility (different models/endpoints)
+
+4. **Response Robustness**: Handle multiple response formats:
+   - Direct JSON object from structured output
+   - JSON string requiring parsing
+   - Invalid/malformed responses (return empty findings)
+
+### Next Steps
+
+- Task 16: Integrate LLM extractor into deep-scanner.ts (when useLlm flag is true)
+- Task 17: End-to-end tests for LLM mode with real codebase context

@@ -864,7 +864,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 15. Integrate extraction prompts for codebase context
+- [x] 15. Integrate extraction prompts for codebase context
 
   **What to do**:
   - Reuse prompts from `src/services/extraction/prompts.ts`
@@ -892,9 +892,9 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
   - `src/services/extraction/index.ts` - Extraction service
 
   **Acceptance Criteria**:
-  - [ ] Codebase-specific prompt created
-  - [ ] Token budget enforced (max 2000)
-  - [ ] Tests pass with mocked LLM responses
+  - [x] Codebase-specific prompt created
+  - [x] Token budget enforced (max 2000)
+  - [x] Tests pass with mocked LLM responses
 
   **Commit**: YES
   - Message: `feat(onboarding): add codebase extraction prompts for LLM mode`

@@ -252,3 +252,73 @@ export function buildUserPrompt(input: ExtractionInput): string {
 
   return parts.join('\n');
 }
+
+// =============================================================================
+// CODEBASE CONTRIBUTION PATTERN EXTRACTION
+// =============================================================================
+
+export const CODEBASE_CONTRIBUTION_SYSTEM_PROMPT = `You are a codebase analyzer extracting contribution patterns.
+Your task: Extract actionable "How to add new X" guides from codebase structure.
+
+## Output Format
+
+Return a JSON object with a "guides" array:
+{
+  "guides": [
+    {
+      "pattern": "Repository",
+      "title": "How to add new Repository",
+      "steps": ["1) Create interface", "2) Implement class", "3) Export"],
+      "confidence": 0.85
+    }
+  ]
+}
+
+## Rules
+
+1. Only extract patterns you are confident about (confidence >= 0.7)
+2. Steps should be concrete and actionable (file paths, commands)
+3. Each guide should have 2-5 steps maximum
+4. Focus on contribution patterns that help new developers
+5. If no patterns are clear, return empty guides array
+
+## Confidence Scoring
+
+- 0.9+: Clear, well-documented pattern with explicit examples
+- 0.8-0.9: Strong pattern inferred from consistent structure
+- 0.7-0.8: Pattern detected but may need verification
+
+Return ONLY valid JSON. No explanations outside the JSON.`;
+
+export interface CodebaseContext {
+  modules: string[];
+  patterns: string[];
+  conventions: string[];
+}
+
+export function buildCodebaseContributionPrompt(context: CodebaseContext): string {
+  const parts: string[] = [];
+
+  parts.push('Analyze this codebase to extract contribution patterns.');
+  parts.push('');
+
+  if (context.modules.length > 0) {
+    parts.push(`Module structure: ${context.modules.join(', ')}`);
+  }
+
+  if (context.patterns.length > 0) {
+    parts.push(`Design patterns detected: ${context.patterns.join(', ')}`);
+  }
+
+  if (context.conventions.length > 0) {
+    parts.push(`File naming conventions: ${context.conventions.join(', ')}`);
+  }
+
+  parts.push('');
+  parts.push('Extract actionable contribution guides in JSON format with:');
+  parts.push('- "guides" array containing pattern, title, steps, confidence');
+  parts.push('');
+  parts.push('Return ONLY the JSON object.');
+
+  return parts.join('\n');
+}
