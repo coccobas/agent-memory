@@ -408,11 +408,11 @@ describe('DeepScannerService', () => {
       });
     });
 
-    it('should categorize findings as fact, decision, or reference', async () => {
+    it('should categorize findings as fact, decision, reference, or tool', async () => {
       const result = await service.scan(testCwd);
 
       result.findings.forEach((finding) => {
-        expect(['fact', 'decision', 'reference']).toContain(finding.category);
+        expect(['fact', 'decision', 'reference', 'tool']).toContain(finding.category);
       });
     });
   });

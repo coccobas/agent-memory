@@ -13,6 +13,7 @@ import {
   createTechStackDetectorService,
   createDocScannerService,
   createGuidelineSeederService,
+  createDeepScannerService,
 } from '../../src/services/onboarding/index.js';
 
 describe('Onboarding Flow Integration', () => {
@@ -265,6 +266,249 @@ go 1.21`
       const result = await techStackDetector.detectTechStack(testDir);
 
       expect(result.languages.some((l) => l.name === 'Go')).toBe(true);
+    });
+  });
+
+  describe('Deep Scanner with Phase 1 Extractors', () => {
+    beforeEach(() => {
+      const dirs = ['docs', 'docs/adr'];
+      for (const dir of dirs) {
+        const dirPath = join(testDir, dir);
+        if (existsSync(dirPath)) {
+          rmSync(dirPath, { recursive: true });
+        }
+      }
+      const files = ['package.json', 'CONTRIBUTING.md'];
+      for (const file of files) {
+        const filePath = join(testDir, file);
+        if (existsSync(filePath)) {
+          rmSync(filePath);
+        }
+      }
+    });
+
+    it('should extract npm scripts as tools', async () => {
+      writeFileSync(
+        join(testDir, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          scripts: {
+            build: 'tsc',
+            test: 'vitest',
+            lint: 'eslint .',
+            custom: 'echo custom',
+          },
+        })
+      );
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['architecture'] });
+
+      const toolFindings = result.findings.filter((f) => f.category === 'tool');
+      expect(toolFindings.length).toBeGreaterThanOrEqual(3);
+
+      const buildTool = toolFindings.find((f) => f.title.includes('npm run build'));
+      expect(buildTool).toBeDefined();
+      expect(buildTool?.content).toContain('To build the project');
+      expect(buildTool?.command).toBe('npm run build');
+
+      const customScript = toolFindings.find((f) => f.title.includes('custom'));
+      expect(customScript).toBeUndefined();
+    });
+
+    it('should extract ADRs with accepted status as decisions', async () => {
+      mkdirSync(join(testDir, 'docs/adr'), { recursive: true });
+
+      writeFileSync(
+        join(testDir, 'docs/adr/0001-use-typescript.md'),
+        `# ADR-0001: Use TypeScript
+
+## Status
+
+Accepted
+
+## Context
+
+We need type safety.
+
+## Decision
+
+Use TypeScript for all code.
+
+## Consequences
+
+- Better tooling
+- Learning curve
+`
+      );
+
+      writeFileSync(
+        join(testDir, 'docs/adr/0002-deprecated.md'),
+        `# ADR-0002: Old Decision
+
+## Status
+
+Deprecated
+
+## Context
+
+Old context.
+
+## Decision
+
+Old decision.
+
+## Consequences
+
+- N/A
+`
+      );
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['documentation'] });
+
+      const decisionFindings = result.findings.filter((f) => f.category === 'decision');
+      expect(decisionFindings.length).toBeGreaterThanOrEqual(1);
+
+      const typescriptAdr = decisionFindings.find((f) => f.title.includes('Use TypeScript'));
+      expect(typescriptAdr).toBeDefined();
+      expect(typescriptAdr?.content).toContain('Decision:');
+      expect(typescriptAdr?.content).toContain('Rationale:');
+
+      const deprecatedAdr = decisionFindings.find((f) => f.title.includes('Old Decision'));
+      expect(deprecatedAdr).toBeUndefined();
+    });
+
+    it('should extract workflow knowledge from CONTRIBUTING.md', async () => {
+      writeFileSync(
+        join(testDir, 'CONTRIBUTING.md'),
+        `# Contributing Guide
+
+## Branch Strategy
+
+- **main**: Production branch
+- **feature/***: Feature branches
+
+### Branch Naming
+
+Use \`feature/issue-123-description\` format.
+
+## Pull Request Process
+
+1. Create a feature branch
+2. Make your changes
+3. Submit PR for review
+
+### PR Title Format
+
+[type]: description
+
+Types: feat, fix, docs
+
+## Commit Messages
+
+Follow conventional commits format.
+
+\`\`\`
+type(scope): subject
+\`\`\`
+
+Example:
+\`\`\`
+feat(auth): add login endpoint
+\`\`\`
+`
+      );
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir, { areas: ['documentation'] });
+
+      const referenceFindings = result.findings.filter((f) => f.category === 'reference');
+      expect(referenceFindings.length).toBeGreaterThanOrEqual(1);
+
+      const branchStrategy = referenceFindings.find((f) => f.title.includes('Branch Strategy'));
+      if (branchStrategy) {
+        expect(branchStrategy.source).toBe('CONTRIBUTING.md');
+      }
+    });
+
+    it('should not create duplicates on re-scan', async () => {
+      writeFileSync(
+        join(testDir, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          scripts: { build: 'tsc', test: 'vitest' },
+        })
+      );
+
+      const deepScanner = createDeepScannerService();
+
+      const result1 = await deepScanner.scan(testDir, { areas: ['architecture'] });
+      const toolCount1 = result1.findings.filter((f) => f.category === 'tool').length;
+
+      const result2 = await deepScanner.scan(testDir, { areas: ['architecture'] });
+      const toolCount2 = result2.findings.filter((f) => f.category === 'tool').length;
+
+      expect(toolCount1).toBe(toolCount2);
+    });
+
+    it('should handle missing files gracefully', async () => {
+      const deepScanner = createDeepScannerService();
+
+      const result = await deepScanner.scan(testDir);
+
+      expect(result.success).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should include all extractor findings in full scan', async () => {
+      writeFileSync(
+        join(testDir, 'package.json'),
+        JSON.stringify({
+          name: 'test-project',
+          scripts: { build: 'tsc', test: 'vitest', lint: 'eslint .' },
+        })
+      );
+
+      mkdirSync(join(testDir, 'docs/adr'), { recursive: true });
+      writeFileSync(
+        join(testDir, 'docs/adr/0001-decision.md'),
+        `# ADR-0001: Test Decision
+
+## Status
+
+Accepted
+
+## Context
+
+Test context.
+
+## Decision
+
+Test decision.
+`
+      );
+
+      writeFileSync(
+        join(testDir, 'CONTRIBUTING.md'),
+        `# Contributing
+
+## Branch Strategy
+
+- **main**: Production
+`
+      );
+
+      const deepScanner = createDeepScannerService();
+      const result = await deepScanner.scan(testDir);
+
+      const toolFindings = result.findings.filter((f) => f.category === 'tool');
+      const decisionFindings = result.findings.filter((f) => f.category === 'decision');
+      const referenceFindings = result.findings.filter((f) => f.category === 'reference');
+
+      expect(toolFindings.length).toBeGreaterThanOrEqual(2);
+      expect(decisionFindings.length).toBeGreaterThanOrEqual(1);
+      expect(referenceFindings.length).toBeGreaterThanOrEqual(1);
     });
   });
 
