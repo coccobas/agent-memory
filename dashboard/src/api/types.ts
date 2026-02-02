@@ -99,6 +99,7 @@ export interface Session {
 export interface Episode {
   id: string;
   sessionId?: string;
+  topicId?: string;
   name: string;
   description?: string;
   status: 'planned' | 'active' | 'completed' | 'failed' | 'cancelled';
