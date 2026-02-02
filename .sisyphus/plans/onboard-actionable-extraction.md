@@ -696,7 +696,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 11. Implement import pattern analysis (top-level only)
+- [x] 11. Implement import pattern analysis (top-level only)
 
   **What to do**:
   - Analyze import statements in top-level index.ts files of each module
@@ -736,7 +736,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 12. Implement naming convention extraction
+- [x] 12. Implement naming convention extraction
 
   **What to do**:
   - Detect file naming patterns per directory
