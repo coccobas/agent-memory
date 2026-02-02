@@ -206,9 +206,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
   **Acceptance Criteria**:
   - [ ] Test file created: `src/db/schema/__tests__/topics.test.ts`
-  - [ ] Schema compiles: `bun run build` passes
+  - [x] Schema compiles: `bun run build` passes
   - [ ] Table can be created: `bun run db:push` succeeds
-  - [ ] Type exports work: `import { Topic, NewTopic } from './topics'` resolves
+  - [x] Type exports work: `import { Topic, NewTopic } from './topics'` resolves
 
   **Commit**: YES
   - Message: `feat(db): add topics table schema`
@@ -243,9 +243,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/db/schema/episodes.ts:93` - Index pattern
 
   **Acceptance Criteria**:
-  - [ ] Schema compiles: `bun run build` passes
+  - [x] Schema compiles: `bun run build` passes
   - [ ] Existing episode tests pass: `bun test src/db/repositories/__tests__/episodes.test.ts`
-  - [ ] topicId is nullable: episodes without topicId still work
+  - [x] topicId is nullable: episodes without topicId still work
 
   **Commit**: YES
   - Message: `feat(db): add topicId FK to episodes schema`
@@ -281,9 +281,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `tests/unit/guidelines.repo.test.ts` - Additional CRUD test patterns
 
   **Acceptance Criteria**:
-  - [ ] Test file exists: `tests/unit/topics.repo.test.ts`
-  - [ ] Tests fail as expected: `bun test tests/unit/topics.repo.test.ts` shows failures
-  - [ ] Covers: create, getById, list (with filters), update, deactivate, findSimilar
+  - [x] Test file exists: `tests/unit/topics.repo.test.ts`
+  - [x] Tests fail as expected: `bun test tests/unit/topics.repo.test.ts` shows failures
+  - [x] Covers: create, getById, list (with filters), update, deactivate, findSimilar
 
   **Commit**: YES
   - Message: `test(db): add topic repository tests (RED)`
@@ -323,9 +323,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/core/interfaces/repositories.ts` - Interface pattern
 
   **Acceptance Criteria**:
-  - [ ] All tests pass: `bun test tests/unit/topics.repo.test.ts` → PASS
-  - [ ] Repository exported: `import { createTopicRepository } from './topics'` works
-  - [ ] Interface defined: `ITopicRepository` in `src/core/interfaces/repositories.ts`
+  - [x] All tests pass: `bun test tests/unit/topics.repo.test.ts` → PASS
+  - [x] Repository exported: `import { createTopicRepository } from './topics'` works
+  - [x] Interface defined: `ITopicRepository` in `src/core/interfaces/repositories.ts`
 
   **Commit**: YES
   - Message: `feat(db): implement topic repository`
@@ -361,9 +361,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/services/episode/index.ts` - Service structure to follow
 
   **Acceptance Criteria**:
-  - [ ] Test file exists: `tests/unit/topic.service.test.ts`
-  - [ ] Tests fail as expected: `bun test tests/unit/topic.service.test.ts` shows failures
-  - [ ] Covers: create, get, list, findOrCreate, getActiveTopic, auto-resume
+  - [x] Test file exists: `tests/unit/topic.service.test.ts`
+  - [x] Tests fail as expected: `bun test tests/unit/topic.service.test.ts` shows failures
+  - [x] Covers: create, get, list, findOrCreate, getActiveTopic, auto-resume
 
   **Commit**: YES
   - Message: `test(services): add topic service tests (RED)`
@@ -399,9 +399,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/services/extraction/hybrid-extractor.ts` - Extraction patterns
 
   **Acceptance Criteria**:
-  - [ ] Test file exists: `tests/unit/topic-extraction.test.ts`
-  - [ ] Tests fail as expected
-  - [ ] Covers: successful extraction, LLM failure fallback, enrichment trigger
+  - [x] Test file exists: `tests/unit/topic-extraction.test.ts`
+  - [x] Tests fail as expected
+  - [x] Covers: successful extraction, LLM failure fallback, enrichment trigger
 
   **Commit**: YES
   - Message: `test(extraction): add topic name extraction tests (RED)`
@@ -440,9 +440,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/core/context.ts` - Service registration pattern
 
   **Acceptance Criteria**:
-  - [ ] All service tests pass: `bun test tests/unit/topic.service.test.ts` → PASS
-  - [ ] Service exported and typed: `ITopicService` interface exists
-  - [ ] Factory function: `createTopicService()` works
+  - [x] All service tests pass: `bun test tests/unit/topic.service.test.ts` → PASS
+  - [x] Service exported and typed: `ITopicService` interface exists
+  - [x] Factory function: `createTopicService()` works
 
   **Commit**: YES
   - Message: `feat(services): implement topic service`
@@ -479,9 +479,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/services/llm/client.ts` - LLM client infrastructure
 
   **Acceptance Criteria**:
-  - [ ] Extraction tests pass: `bun test tests/unit/topic-extraction.test.ts` → PASS
-  - [ ] Fallback works: When LLM unavailable, returns "Topic #N"
-  - [ ] Non-blocking: Function returns immediately with fallback, enriches in background
+  - [x] Extraction tests pass: `bun test tests/unit/topic-extraction.test.ts` → PASS
+  - [x] Fallback works: When LLM unavailable, returns "Topic #N"
+  - [x] Non-blocking: Function returns immediately with fallback, enriches in background
 
   **Commit**: YES
   - Message: `feat(extraction): add topic name extraction with LLM`
@@ -518,9 +518,9 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/services/consolidation/similarity.ts` - Similarity calculation patterns
 
   **Acceptance Criteria**:
-  - [ ] findSimilar returns semantically similar topics
-  - [ ] Test: `bun test tests/unit/topics.repo.test.ts -t "findSimilar"` → PASS
-  - [ ] Threshold configurable via parameter
+  - [x] findSimilar returns semantically similar topics
+  - [x] Test: `bun test tests/unit/topics.repo.test.ts -t "findSimilar"` → PASS
+  - [x] Threshold configurable via parameter
 
   **Commit**: YES
   - Message: `feat(topics): add embedding-based similarity search`
@@ -599,11 +599,11 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/mcp/descriptors/memory_quickstart.ts:304-387` - Session creation flow
 
   **Acceptance Criteria**:
-  - [ ] Test: quickstart with message creates topic via LLM extraction
-  - [ ] Test: quickstart finds similar topic and resumes it
-  - [ ] Test: episode linked to topic (topicId populated)
-  - [ ] Test: existing quickstart calls still work (backward compat)
-  - [ ] `bun test tests/integration/full-workflow.test.ts` → PASS (includes quickstart)
+  - [x] Test: quickstart with message creates topic via LLM extraction
+  - [x] Test: quickstart finds similar topic and resumes it
+  - [x] Test: episode linked to topic (topicId populated)
+  - [x] Test: existing quickstart calls still work (backward compat)
+  - [x] `bun test tests/integration/full-workflow.test.ts` → PASS (includes quickstart)
 
   **Commit**: YES
   - Message: `feat(quickstart): integrate topic creation and resumption`
@@ -641,10 +641,10 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `tests/unit/episodes-handler.test.ts` - Handler test pattern
 
   **Acceptance Criteria**:
-  - [ ] Tool appears in MCP tool list
-  - [ ] Test: `memory_topic` action=list returns topics
-  - [ ] Test: `memory_topic` action=create creates topic
-  - [ ] Test: `memory_topic` action=find_similar returns similar topics
+  - [x] Tool appears in MCP tool list
+  - [x] Test: `memory_topic` action=list returns topics
+  - [x] Test: `memory_topic` action=create creates topic
+  - [x] Test: `memory_topic` action=find_similar returns similar topics
   - [ ] `bun test tests/unit/topics-handler.test.ts` → PASS
 
   **Commit**: YES
