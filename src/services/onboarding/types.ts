@@ -108,6 +108,8 @@ export interface OnboardingResult {
     name: string;
     category: string;
   }>;
+  deepScanFindings?: DeepScanFinding[];
+  deepScanDurationMs?: number;
   warnings: string[];
   nextSteps: string[];
   dryRun?: boolean;
@@ -127,7 +129,50 @@ export interface OnboardingOptions {
 /**
  * Valid onboarding steps
  */
-export type OnboardingStep = 'detectProject' | 'createProject' | 'importDocs' | 'seedGuidelines';
+export type OnboardingStep =
+  | 'detectProject'
+  | 'createProject'
+  | 'importDocs'
+  | 'seedGuidelines'
+  | 'deepScan';
+
+/**
+ * Deep scan exploration area
+ */
+export type DeepScanArea = 'architecture' | 'database' | 'api' | 'testing' | 'documentation';
+
+/**
+ * Deep scan finding - a discovered fact about the codebase
+ */
+export interface DeepScanFinding {
+  area: DeepScanArea;
+  title: string;
+  content: string;
+  category: 'fact' | 'decision' | 'reference' | 'tool';
+  confidence: number;
+  source?: string;
+  command?: string;
+}
+
+/**
+ * Deep scan result
+ */
+export interface DeepScanResult {
+  success: boolean;
+  findings: DeepScanFinding[];
+  areasScanned: DeepScanArea[];
+  durationMs: number;
+  errors: string[];
+}
+
+/**
+ * Deep scan options
+ */
+export interface DeepScanOptions {
+  areas?: DeepScanArea[]; // Which areas to scan (default: all)
+  maxFindings?: number; // Max findings per area (default: 10)
+  timeout?: number; // Timeout in ms (default: 120000)
+}
 
 /**
  * Service interfaces
