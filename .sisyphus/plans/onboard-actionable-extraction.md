@@ -580,7 +580,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 8. Implement module boundary detection
+- [x] 8. Implement module boundary detection
 
   **What to do**:
   - Add method to detect top-level module boundaries from `src/` structure
@@ -619,7 +619,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 9. Implement template directory identification
+- [x] 9. Implement template directory identification
 
   **What to do**:
   - Detect directories named `templates/`, `examples/`, `boilerplate/`, or containing `*.template.*` files
@@ -657,7 +657,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 10. Implement "How to add new X" pattern extraction
+- [x] 10. Implement "How to add new X" pattern extraction
 
   **What to do**:
   - For detected patterns (Repository, Handler, Service), generate contribution guides
