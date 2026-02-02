@@ -930,3 +930,87 @@ Duration    605ms
 - Task 14: Add --useLlm flag to onboard command (Phase 3, Wave 3.1)
 - Task 15: Integrate extraction prompts for codebase context (Phase 3, Wave 3.1)
 - Task 16: LLM-assisted contribution guide generation (Phase 3, Wave 3.1)
+
+## Task 14: Add --useLlm Flag to Onboard Command (Phase 3, Wave 3.1)
+
+**Completed**: Added `--useLlm` flag to memory_onboard MCP descriptor with validation
+
+### Implementation Details
+
+1. **Modified `src/mcp/descriptors/memory_onboard.ts`**:
+   - Added import: `import { config } from '../../config/index.js'`
+   - Added `useLlm` parameter to descriptor schema:
+     - Type: boolean
+     - Description: "Enable LLM-assisted extraction for enhanced insights (default: false). Requires AGENT_MEMORY_OPENAI_API_KEY to be set."
+   - Added `useLlm` to options parsing: `useLlm: (args?.useLlm as boolean) ?? false`
+   - Added validation logic immediately after options parsing:
+     ```typescript
+     if (options.useLlm && !config.extraction.openaiApiKey) {
+       throw new Error(
+         '--useLlm requires AGENT_MEMORY_OPENAI_API_KEY to be set. ' +
+           'Please configure the API key or disable LLM mode.'
+       );
+     }
+     ```
+
+2. **Created `tests/unit/mcp/descriptors/memory_onboard.test.ts`**:
+   - 9 comprehensive tests covering:
+     - Flag defaults to false when not provided
+     - Error thrown when useLlm=true but no API key
+     - No error when useLlm=false (regardless of API key)
+     - No error when useLlm=true and API key present
+     - Proper error message when validation fails
+     - Descriptor structure validation
+     - All expected parameters present
+
+### Key Patterns
+
+- **Config Access Pattern**: Use `config.extraction.openaiApiKey` to check for API key
+- **Environment Variable**: `AGENT_MEMORY_OPENAI_API_KEY` is the env var name
+- **Validation Placement**: Validate immediately after options parsing, before any LLM operations
+- **Error Message**: Include both the requirement (API key needed) and the solution (configure or disable)
+- **Default Behavior**: Default to false (explicit opt-in required for LLM features)
+
+### Test Patterns
+
+- **withTestEnv Helper**: Use `withTestEnv()` to temporarily override environment variables
+- **Config Snapshot**: Use `snapshotConfig()` and `restoreConfig()` for test isolation
+- **Validation Testing**: Test both success and failure paths
+- **Type Safety**: Use `Record<string, unknown>` for flexible args objects in tests
+
+### Verification Results
+
+- ✓ All 9 tests pass
+- ✓ All 224 onboarding unit tests pass
+- ✓ npm run typecheck passes with no errors
+- ✓ No LSP diagnostics errors
+
+### Key Learnings
+
+1. **Config System**: The project uses a centralized config system with environment variable parsing
+   - Access via `config.extraction.openaiApiKey`
+   - Environment variable: `AGENT_MEMORY_OPENAI_API_KEY`
+   - Config is built from registry at startup
+
+2. **Validation Strategy**: Validate at the earliest point where the flag is used
+   - Prevents LLM calls without proper configuration
+   - Provides clear error message to user
+   - Allows graceful degradation (flag defaults to false)
+
+3. **Test Isolation**: Use config snapshots to ensure tests don't interfere with each other
+   - `snapshotConfig()` before each test
+   - `restoreConfig()` after each test
+   - `withTestEnv()` for temporary env overrides
+
+4. **Descriptor Pattern**: MCP descriptors follow consistent structure
+   - `name`: Tool identifier
+   - `visibility`: 'core', 'standard', 'advanced', 'experimental'
+   - `description`: User-facing description
+   - `params`: Parameter definitions with type and description
+   - `contextHandler`: Async function that implements the tool
+
+### Next Steps
+
+- Task 15: Integrate extraction prompts for codebase context (Phase 3, Wave 3.1)
+- Task 16: LLM-assisted contribution guide generation (Phase 3, Wave 3.1)
+- Task 17: End-to-end tests for LLM mode (Phase 3, Wave 3.2)

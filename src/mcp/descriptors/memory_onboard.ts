@@ -27,6 +27,7 @@ import {
 } from '../../services/onboarding/index.js';
 import { formatOnboardMinto, type OnboardMintoInput } from '../../utils/minto-formatter.js';
 import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
+import { config } from '../../config/index.js';
 
 export const memoryOnboardDescriptor: SimpleToolDescriptor = {
   name: 'memory_onboard',
@@ -70,6 +71,11 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       description:
         'Use Minto Pyramid format (default: true). Set false for verbose dashboard output.',
     },
+    useLlm: {
+      type: 'boolean',
+      description:
+        'Enable LLM-assisted extraction for enhanced insights (default: false). Requires AGENT_MEMORY_OPENAI_API_KEY to be set.',
+    },
   },
   contextHandler: async (ctx, args) => {
     const { path: cwd } = await getWorkingDirectoryAsync();
@@ -83,7 +89,16 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       dryRun: (args?.dryRun as boolean) ?? false,
       deepScan: (args?.deepScan as boolean) ?? false,
       mintoStyle: (args?.mintoStyle as boolean) ?? true,
+      useLlm: (args?.useLlm as boolean) ?? false,
     };
+
+    // Validate useLlm flag
+    if (options.useLlm && !config.extraction.openaiApiKey) {
+      throw new Error(
+        '--useLlm requires AGENT_MEMORY_OPENAI_API_KEY to be set. ' +
+          'Please configure the API key or disable LLM mode.'
+      );
+    }
 
     const skipSteps = new Set(options.skipSteps);
     const warnings: string[] = [];

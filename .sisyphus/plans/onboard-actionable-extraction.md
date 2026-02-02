@@ -825,7 +825,7 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
 
 ---
 
-- [ ] 14. Add --useLlm flag to onboard command
+- [x] 14. Add --useLlm flag to onboard command
 
   **What to do**:
   - Add `--useLlm` (or `useLlm: boolean`) option to `memory_onboard`
@@ -853,9 +853,9 @@ Critical Path: Task 1 -> Task 4 -> Task 7 -> Task 8 -> Task 13
   - Existing flag patterns in other descriptors
 
   **Acceptance Criteria**:
-  - [ ] `--useLlm` flag added to onboard command
-  - [ ] Error thrown if flag set without API key
-  - [ ] No LLM calls when flag is false
+  - [x] `--useLlm` flag added to onboard command
+  - [x] Error thrown if flag set without API key
+  - [x] No LLM calls when flag is false
 
   **Commit**: YES
   - Message: `feat(onboarding): add --useLlm flag for LLM-assisted extraction`
