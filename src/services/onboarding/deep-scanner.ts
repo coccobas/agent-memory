@@ -9,7 +9,7 @@
  * - Documentation (all markdown files, ADRs, inline docs)
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, basename, extname, relative } from 'node:path';
 import type { DeepScanArea, DeepScanFinding, DeepScanResult, DeepScanOptions } from './types.js';
 import { ScriptExtractorService } from './script-extractor.js';
@@ -212,6 +212,18 @@ export class DeepScannerService implements IDeepScannerService {
           source: firstFile.path,
         });
       }
+    }
+
+    // Detect naming conventions from file patterns
+    const namingConvention = this.detectNamingConventions(cwd);
+    if (namingConvention) {
+      findings.push(namingConvention);
+    }
+
+    // Analyze import patterns in index.ts files
+    const importPatterns = this.analyzeImportPatterns(cwd);
+    if (importPatterns) {
+      findings.push(importPatterns);
     }
 
     return this.deduplicateFindings(findings).slice(0, maxFindings);
@@ -854,6 +866,119 @@ export class DeepScannerService implements IDeepScannerService {
     }
 
     return patterns;
+  }
+
+  private detectNamingConventions(cwd: string): DeepScanFinding | null {
+    const srcDir = join(cwd, 'src');
+    if (!existsSync(srcDir)) return null;
+
+    const conventions: string[] = [];
+    const allFiles = this.getFilesRecursive(srcDir, ['.ts']);
+
+    const repositoryFiles = allFiles.filter((f) => /\.repository\.ts$/.test(f.name));
+    if (repositoryFiles.length > 0) {
+      conventions.push('Repositories: {entity}.repository.ts');
+    }
+
+    const handlerFiles = allFiles.filter((f) => /\.handler\.ts$/.test(f.name));
+    if (handlerFiles.length > 0) {
+      conventions.push('Handlers: {entity}.handler.ts');
+    }
+
+    const serviceFiles = allFiles.filter((f) => /\.service\.ts$/.test(f.name));
+    if (serviceFiles.length > 0) {
+      conventions.push('Services: {entity}.service.ts');
+    }
+
+    if (conventions.length === 0) return null;
+
+    return {
+      area: 'architecture',
+      title: 'Naming Conventions',
+      content: `File naming conventions detected:\n${conventions.map((c) => `- ${c}`).join('\n')}`,
+      category: 'reference',
+      confidence: 0.85,
+      source: srcDir,
+    };
+  }
+
+  private analyzeImportPatterns(cwd: string): DeepScanFinding | null {
+    const srcDir = join(cwd, 'src');
+    if (!existsSync(srcDir)) return null;
+
+    const topLevelDirs = this.getDirectories(srcDir);
+    if (topLevelDirs.length === 0) return null;
+
+    const importMap = new Map<string, Set<string>>();
+
+    for (const dir of topLevelDirs) {
+      const indexPath = join(srcDir, dir, 'index.ts');
+      if (!existsSync(indexPath)) continue;
+
+      try {
+        const content = readFileSync(indexPath, 'utf-8');
+        const imports = this.extractCrossModuleImports(content, dir, topLevelDirs);
+        if (imports.size > 0) {
+          importMap.set(dir, imports);
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (importMap.size === 0) return null;
+
+    const importDirections: string[] = [];
+    importMap.forEach((targets, source) => {
+      targets.forEach((target) => {
+        importDirections.push(`${source}/ → ${target}/`);
+      });
+    });
+
+    const uniqueDirections = [...new Set(importDirections)];
+    if (uniqueDirections.length === 0) return null;
+
+    const content = `Module import patterns detected from index.ts files:\n${uniqueDirections.map((d) => `- ${d}`).join('\n')}`;
+
+    return {
+      area: 'architecture',
+      title: 'Import Patterns',
+      content,
+      category: 'decision',
+      confidence: 0.85,
+      source: srcDir,
+    };
+  }
+
+  private extractCrossModuleImports(
+    content: string,
+    currentModule: string,
+    allModules: string[]
+  ): Set<string> {
+    const crossModuleImports = new Set<string>();
+    const importRegex = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
+
+    let match;
+    while ((match = importRegex.exec(content)) !== null) {
+      const importPath = match[1];
+      if (!importPath) continue;
+
+      for (const module of allModules) {
+        if (module === currentModule) continue;
+
+        if (
+          importPath.includes(`../${module}/`) ||
+          importPath.includes(`../../${module}/`) ||
+          importPath.startsWith(`@/${module}/`) ||
+          importPath === `../${module}` ||
+          importPath === `../../${module}`
+        ) {
+          crossModuleImports.add(module);
+        }
+      }
+    }
+
+    return crossModuleImports;
   }
 }
 

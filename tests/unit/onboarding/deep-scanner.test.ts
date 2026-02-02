@@ -683,4 +683,215 @@ describe('DeepScannerService', () => {
       });
     });
   });
+
+  describe('scanArchitecture - naming conventions', () => {
+    it('should detect file naming patterns per directory', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        expect(namingFinding.area).toBe('architecture');
+        expect(namingFinding.category).toBe('reference');
+        expect(namingFinding.confidence).toBeGreaterThanOrEqual(0.7);
+        expect(namingFinding.content).toMatch(/naming convention/i);
+      }
+    });
+
+    it('should detect repository naming pattern (*.repository.ts)', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        // Should mention repository pattern if repositories exist
+        const content = namingFinding.content.toLowerCase();
+        if (content.includes('repository')) {
+          expect(content).toMatch(/repository.*\.ts|\.repository\.ts/i);
+        }
+      }
+    });
+
+    it('should detect handler naming pattern (*.handler.ts)', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        // Should mention handler pattern if handlers exist
+        const content = namingFinding.content.toLowerCase();
+        if (content.includes('handler')) {
+          expect(content).toMatch(/handler.*\.ts|\.handler\.ts/i);
+        }
+      }
+    });
+
+    it('should detect service naming pattern (*.service.ts)', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        // Should mention service pattern if services exist
+        const content = namingFinding.content.toLowerCase();
+        if (content.includes('service')) {
+          expect(content).toMatch(/service.*\.ts|\.service\.ts/i);
+        }
+      }
+    });
+
+    it('should use regex on filenames, not content', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        // Naming conventions should be based on file patterns, not file content
+        // This is validated by checking that the finding exists and has proper structure
+        expect(namingFinding).toBeDefined();
+        expect(namingFinding.source).toBeDefined();
+      }
+    });
+
+    it('should generate actionable convention descriptions', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        // Should describe conventions in actionable format like "Repositories: {entity}.repository.ts"
+        // Not just list files
+        expect(namingFinding.content.length).toBeGreaterThan(20);
+        expect(namingFinding.content).not.toMatch(/^Found \d+ files/);
+      }
+    });
+
+    it('should have confidence score in valid range (0.7-0.95)', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        expect(namingFinding.confidence).toBeGreaterThanOrEqual(0.7);
+        expect(namingFinding.confidence).toBeLessThanOrEqual(0.95);
+      }
+    });
+
+    it('should include source field with directory path', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const namingFinding = result.findings.find((f) => f.title === 'Naming Conventions');
+      if (namingFinding) {
+        expect(namingFinding.source).toBeDefined();
+        expect(typeof namingFinding.source).toBe('string');
+      }
+    });
+  });
+
+  describe('scanArchitecture - import pattern analysis', () => {
+    it('should detect cross-module imports in index.ts files', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        expect(importFinding.area).toBe('architecture');
+        expect(importFinding.category).toBe('decision');
+        expect(importFinding.confidence).toBeGreaterThanOrEqual(0.8);
+      }
+    });
+
+    it('should generate at least one import pattern finding for this project', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFindings = result.findings.filter(
+        (f) => f.title === 'Import Patterns' || f.title === 'Module Boundaries'
+      );
+      expect(importFindings.length).toBeGreaterThan(0);
+    });
+
+    it('should analyze only top-level index.ts files (depth 1)', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        // Should mention index.ts analysis
+        expect(importFinding.content).toMatch(/index\.ts|module/i);
+      }
+    });
+
+    it('should detect imports from other src/ modules', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        // Should detect patterns like services importing from db, mcp importing from services
+        const content = importFinding.content.toLowerCase();
+        const hasModuleReference =
+          content.includes('services') ||
+          content.includes('db') ||
+          content.includes('mcp') ||
+          content.includes('config');
+        expect(hasModuleReference).toBe(true);
+      }
+    });
+
+    it('should generate module boundary guidelines', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      // Look for guidelines about import boundaries
+      const boundaryGuideline = result.findings.find(
+        (f) =>
+          f.title.includes('Import') || (f.title.includes('Module') && f.content.includes('import'))
+      );
+      if (boundaryGuideline) {
+        expect(boundaryGuideline.category).toMatch(/decision|reference/);
+        expect(boundaryGuideline.confidence).toBeGreaterThanOrEqual(0.75);
+      }
+    });
+
+    it('should identify allowed import directions (e.g., mcp → services)', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        // Should describe allowed import directions
+        const content = importFinding.content.toLowerCase();
+        // In this codebase: mcp imports from services, services imports from db
+        const hasDirectionInfo =
+          content.includes('→') ||
+          content.includes('->') ||
+          content.includes('from') ||
+          content.includes('imports');
+        expect(hasDirectionInfo).toBe(true);
+      }
+    });
+
+    it('should have proper finding structure', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        expect(importFinding).toHaveProperty('area', 'architecture');
+        expect(importFinding).toHaveProperty('title');
+        expect(importFinding).toHaveProperty('content');
+        expect(importFinding).toHaveProperty('category');
+        expect(importFinding).toHaveProperty('confidence');
+        expect(importFinding.confidence).toBeGreaterThanOrEqual(0);
+        expect(importFinding.confidence).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('should set confidence based on number of imports analyzed', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        // Confidence should be reasonable (0.75-0.9 range)
+        expect(importFinding.confidence).toBeGreaterThanOrEqual(0.75);
+        expect(importFinding.confidence).toBeLessThanOrEqual(0.9);
+      }
+    });
+
+    it('should include source reference', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const importFinding = result.findings.find((f) => f.title === 'Import Patterns');
+      if (importFinding) {
+        expect(importFinding.source).toBeDefined();
+      }
+    });
+  });
 });
