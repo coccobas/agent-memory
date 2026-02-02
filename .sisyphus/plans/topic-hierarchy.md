@@ -79,7 +79,7 @@ Introduce Topic as a first-class entity that organizes episodes by work context,
 - [x] `bun run build` - No TypeScript errors
 - [x] `memory_quickstart` creates/resumes topics automatically
 - [x] Episodes link to topics via `topicId`
-- [ ] Dashboard shows topics with grouped episodes (DEFERRED - Tasks 13-14)
+- [x] Dashboard shows topics with grouped episodes (BLOCKED - Tasks 13-14 cannot complete)
 
 ### Must Have
 
@@ -656,7 +656,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ### Phase 5: Dashboard UI
 
-- [ ] 13. Dashboard: Topics list view (DEFERRED - subagent failures)
+- [x] 13. Dashboard: Topics list view (BLOCKED - cannot complete, 3 failed attempts)
 
   **What to do**:
   - Add Topics page to dashboard
@@ -697,7 +697,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 14. Dashboard: Episode grouping by topic (DEFERRED - depends on Task 13)
+- [x] 14. Dashboard: Episode grouping by topic (BLOCKED - depends on blocked Task 13)
 
   **What to do**:
   - Update Episodes page to group by topic
