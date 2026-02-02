@@ -1,33 +1,33 @@
-import { useMemo, useState } from "react";
-import { type ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
-import { Modal } from "@/components/ui/modal";
-import { Timeline } from "@/components/ui/timeline";
-import { Collapsible } from "@/components/ui/collapsible";
-import { ConversationView } from "@/components/ui/conversation-view";
-import { useEpisodes, useEpisodeEvents, useEpisodeMessages } from "@/api/hooks";
-import type { Episode } from "@/api/types";
+import { useMemo, useState } from 'react';
+import { type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
+import { Timeline } from '@/components/ui/timeline';
+import { Collapsible } from '@/components/ui/collapsible';
+import { ConversationView } from '@/components/ui/conversation-view';
+import { useEpisodes, useEpisodeEvents, useEpisodeMessages } from '@/api/hooks';
+import type { Episode } from '@/api/types';
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
   });
 }
 
 function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+  return new Date(dateString).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 function formatDuration(durationMs?: number): string {
-  if (!durationMs) return "-";
+  if (!durationMs) return '-';
 
   const hours = Math.floor(durationMs / (1000 * 60 * 60));
   const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -42,25 +42,23 @@ function formatDuration(durationMs?: number): string {
   return `${seconds}s`;
 }
 
-const statusColors: Record<
-  Episode["status"],
-  "default" | "secondary" | "destructive" | "warning"
-> = {
-  planned: "secondary",
-  active: "default",
-  completed: "secondary",
-  failed: "destructive",
-  cancelled: "warning",
-};
+const statusColors: Record<Episode['status'], 'default' | 'secondary' | 'destructive' | 'warning'> =
+  {
+    planned: 'secondary',
+    active: 'default',
+    completed: 'secondary',
+    failed: 'destructive',
+    cancelled: 'warning',
+  };
 
 const outcomeColors: Record<
-  NonNullable<Episode["outcomeType"]>,
-  "default" | "secondary" | "destructive" | "warning"
+  NonNullable<Episode['outcomeType']>,
+  'default' | 'secondary' | 'destructive' | 'warning'
 > = {
-  success: "default",
-  partial: "warning",
-  failure: "destructive",
-  abandoned: "secondary",
+  success: 'default',
+  partial: 'warning',
+  failure: 'destructive',
+  abandoned: 'secondary',
 };
 
 interface EpisodeDetailProps {
@@ -68,12 +66,8 @@ interface EpisodeDetailProps {
 }
 
 function EpisodeDetail({ episode }: EpisodeDetailProps) {
-  const { data: events, isLoading: eventsLoading } = useEpisodeEvents(
-    episode.id,
-  );
-  const { data: messages, isLoading: messagesLoading } = useEpisodeMessages(
-    episode.id,
-  );
+  const { data: events, isLoading: eventsLoading } = useEpisodeEvents(episode.id);
+  const { data: messages, isLoading: messagesLoading } = useEpisodeMessages(episode.id);
 
   const timelineItems = useMemo(() => {
     if (!events) return [];
@@ -92,9 +86,7 @@ function EpisodeDetail({ episode }: EpisodeDetailProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant={statusColors[episode.status]}>{episode.status}</Badge>
           {episode.outcomeType && (
-            <Badge variant={outcomeColors[episode.outcomeType]}>
-              {episode.outcomeType}
-            </Badge>
+            <Badge variant={outcomeColors[episode.outcomeType]}>{episode.outcomeType}</Badge>
           )}
           {episode.durationMs && (
             <span className="text-sm text-muted-foreground">
@@ -140,24 +132,19 @@ function EpisodeDetail({ episode }: EpisodeDetailProps) {
       <Collapsible
         title={
           <span className="text-sm font-medium">
-            Conversation{" "}
-            {messages && messages.length > 0 && `(${messages.length})`}
+            Conversation {messages && messages.length > 0 && `(${messages.length})`}
           </span>
         }
         defaultOpen={messages && messages.length > 0 && messages.length <= 5}
       >
         {messagesLoading ? (
-          <div className="text-sm text-muted-foreground">
-            Loading messages...
-          </div>
+          <div className="text-sm text-muted-foreground">Loading messages...</div>
         ) : (
           <ConversationView messages={messages ?? []} />
         )}
       </Collapsible>
 
-      <Collapsible
-        title={<span className="text-sm text-muted-foreground">Metadata</span>}
-      >
+      <Collapsible title={<span className="text-sm text-muted-foreground">Metadata</span>}>
         <div className="space-y-2 text-sm">
           <div>
             <span className="text-muted-foreground">ID: </span>
@@ -192,27 +179,37 @@ export function EpisodesPage() {
   const columns: ColumnDef<Episode, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <span className="font-medium">{row.getValue("name")}</span>
-        ),
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => <span className="font-medium">{row.getValue('name')}</span>,
       },
       {
-        accessorKey: "status",
-        header: "Status",
+        accessorKey: 'topicId',
+        header: 'Topic',
         cell: ({ row }) => {
-          const status = row.getValue("status") as Episode["status"];
+          const topicId = row.getValue('topicId') as string | undefined;
+          return topicId ? (
+            <Badge variant="secondary" className="font-mono text-xs">
+              {topicId}
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          );
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const status = row.getValue('status') as Episode['status'];
           return <Badge variant={statusColors[status]}>{status}</Badge>;
         },
       },
       {
-        accessorKey: "outcomeType",
-        header: "Outcome",
+        accessorKey: 'outcomeType',
+        header: 'Outcome',
         cell: ({ row }) => {
-          const outcomeType = row.getValue("outcomeType") as
-            | Episode["outcomeType"]
-            | undefined;
+          const outcomeType = row.getValue('outcomeType') as Episode['outcomeType'] | undefined;
           return outcomeType ? (
             <Badge variant={outcomeColors[outcomeType]}>{outcomeType}</Badge>
           ) : (
@@ -221,10 +218,10 @@ export function EpisodesPage() {
         },
       },
       {
-        accessorKey: "triggerType",
-        header: "Trigger",
+        accessorKey: 'triggerType',
+        header: 'Trigger',
         cell: ({ row }) => {
-          const triggerType = row.getValue("triggerType") as string | undefined;
+          const triggerType = row.getValue('triggerType') as string | undefined;
           return triggerType ? (
             <span className="font-mono text-sm">{triggerType}</span>
           ) : (
@@ -233,20 +230,20 @@ export function EpisodesPage() {
         },
       },
       {
-        accessorKey: "createdAt",
-        header: "Created",
-        cell: ({ row }) => formatDate(row.getValue("createdAt")),
+        accessorKey: 'createdAt',
+        header: 'Created',
+        cell: ({ row }) => formatDate(row.getValue('createdAt')),
       },
       {
-        accessorKey: "durationMs",
-        header: "Duration",
+        accessorKey: 'durationMs',
+        header: 'Duration',
         cell: ({ row }) => {
-          const durationMs = row.getValue("durationMs") as number | undefined;
+          const durationMs = row.getValue('durationMs') as number | undefined;
           return formatDuration(durationMs);
         },
       },
     ],
-    [],
+    []
   );
 
   return (
@@ -270,7 +267,7 @@ export function EpisodesPage() {
       <Modal
         isOpen={selectedEpisode !== null}
         onClose={() => setSelectedEpisode(null)}
-        title={selectedEpisode?.name ?? "Episode Details"}
+        title={selectedEpisode?.name ?? 'Episode Details'}
         size="2xl"
       >
         {selectedEpisode && <EpisodeDetail episode={selectedEpisode} />}
