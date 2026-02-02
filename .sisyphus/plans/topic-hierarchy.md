@@ -205,7 +205,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
   - `src/db/schema/postgresql/episodes.ts` - PostgreSQL variant pattern
 
   **Acceptance Criteria**:
-  - [ ] Test file created: `src/db/schema/__tests__/topics.test.ts`
+  - [x] Test file created: `src/db/schema/__tests__/topics.test.ts`
   - [x] Schema compiles: `bun run build` passes
   - [ ] Table can be created: `bun run db:push` succeeds
   - [x] Type exports work: `import { Topic, NewTopic } from './topics'` resolves
@@ -244,7 +244,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
   **Acceptance Criteria**:
   - [x] Schema compiles: `bun run build` passes
-  - [ ] Existing episode tests pass: `bun test src/db/repositories/__tests__/episodes.test.ts`
+  - [x] Existing episode tests pass: `bun test src/db/repositories/__tests__/episodes.test.ts`
   - [x] topicId is nullable: episodes without topicId still work
 
   **Commit**: YES
