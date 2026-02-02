@@ -412,7 +412,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ### Phase 3: Service Layer
 
-- [ ] 7. Implement topic service (GREEN)
+- [x] 7. Implement topic service (GREEN)
 
   **What to do**:
   - Create `src/services/topic/index.ts`
@@ -451,7 +451,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 8. Implement LLM topic extraction (GREEN)
+- [x] 8. Implement LLM topic extraction (GREEN)
 
   **What to do**:
   - Add `extractTopicName(userMessage: string)` to extraction service
@@ -490,7 +490,7 @@ Critical Path: 1 → 4 → 7 → 11 → 12
 
 ---
 
-- [ ] 9. Implement embedding-based findSimilar
+- [x] 9. Implement embedding-based findSimilar
 
   **What to do**:
   - Wire TopicRepository.findSimilar to embedding service
