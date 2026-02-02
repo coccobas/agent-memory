@@ -23,6 +23,7 @@ import {
   createTechStackDetectorService,
   createDocScannerService,
   createGuidelineSeederService,
+  createDeepScannerService,
 } from '../../services/onboarding/index.js';
 import { formatOnboardMinto, type OnboardMintoInput } from '../../utils/minto-formatter.js';
 import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
@@ -59,6 +60,11 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       type: 'boolean',
       description: 'Preview what would be done without making changes (default: false)',
     },
+    deepScan: {
+      type: 'boolean',
+      description:
+        'Perform exhaustive codebase exploration to discover architecture, database schemas, API surfaces, testing patterns, and documentation. Findings are stored as knowledge entries. (default: false)',
+    },
     mintoStyle: {
       type: 'boolean',
       description:
@@ -75,6 +81,7 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       seedGuidelines: (args?.seedGuidelines as boolean) ?? true,
       skipSteps: (args?.skipSteps as string[] | undefined) ?? [],
       dryRun: (args?.dryRun as boolean) ?? false,
+      deepScan: (args?.deepScan as boolean) ?? false,
       mintoStyle: (args?.mintoStyle as boolean) ?? true,
     };
 
@@ -175,7 +182,7 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
 
       if (options.seedGuidelines && !skipSteps.has('seedGuidelines') && ctx.repos.guidelines) {
         const guidelineSeeder = createGuidelineSeederService({
-          findByName: async () => null, // Assume none exist for preview
+          findByName: async () => null,
           bulkCreate: async () => [],
         });
         const guidelines = guidelineSeeder.getGuidelinesForTechStack(techStack);
@@ -185,6 +192,16 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
             category: g.category,
           });
         }
+      }
+
+      if (options.deepScan) {
+        const deepScanner = createDeepScannerService();
+        const deepScanResult = await deepScanner.scan(cwd);
+        result.deepScanFindings = deepScanResult.findings;
+        result.deepScanDurationMs = deepScanResult.durationMs;
+        nextSteps.push(
+          `Deep scan would store ${deepScanResult.findings.length} findings (${deepScanResult.areasScanned.join(', ')})`
+        );
       }
 
       nextSteps.push('Run without dryRun:true to apply changes');
@@ -338,6 +355,55 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       }
     }
 
+    // Step 7: Deep scan (optional)
+    if (options.deepScan && projectId && ctx.repos.knowledge) {
+      try {
+        const deepScanner = createDeepScannerService();
+        const deepScanResult = await deepScanner.scan(cwd);
+
+        result.deepScanFindings = deepScanResult.findings;
+        result.deepScanDurationMs = deepScanResult.durationMs;
+
+        if (!deepScanResult.success) {
+          for (const err of deepScanResult.errors) {
+            warnings.push(`Deep scan error: ${err}`);
+          }
+        }
+
+        // Store findings as knowledge entries
+        for (const finding of deepScanResult.findings) {
+          try {
+            // Map DeepScanFinding category to knowledge category
+            // 'tool' findings are stored as 'fact' entries
+            const knowledgeCategory = finding.category === 'tool' ? 'fact' : finding.category;
+
+            await ctx.repos.knowledge.create({
+              title: finding.title,
+              content: finding.content,
+              category: knowledgeCategory as 'decision' | 'fact' | 'context' | 'reference',
+              source: finding.source,
+              confidence: finding.confidence,
+              scopeType: 'project' as ScopeType,
+              scopeId: projectId,
+              createdBy: agentId,
+            });
+          } catch (error) {
+            warnings.push(
+              `Failed to store finding "${finding.title}": ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
+
+        nextSteps.push(
+          `Deep scan: ${deepScanResult.findings.length} findings stored (${deepScanResult.areasScanned.join(', ')})`
+        );
+      } catch (error) {
+        warnings.push(
+          `Deep scan failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
     // Add next steps suggestions
     if (result.project.created) {
       nextSteps.push(
@@ -379,6 +445,8 @@ function buildOnboardMintoInput(result: OnboardingResult): OnboardMintoInput {
     techStack: result.techStack,
     importedDocs: result.importedDocs,
     seededGuidelines: result.seededGuidelines,
+    deepScanFindings: result.deepScanFindings,
+    deepScanDurationMs: result.deepScanDurationMs,
     warnings: result.warnings,
     nextSteps: result.nextSteps,
   };
@@ -458,7 +526,6 @@ function formatOnboardingResult(result: OnboardingResult, isDryRun: boolean): st
     lines.push(
       `\n**${isDryRun ? 'Would seed' : 'Seeded'} Guidelines:** ${result.seededGuidelines.length}`
     );
-    // Group by category
     const byCategory = new Map<string, string[]>();
     for (const g of result.seededGuidelines) {
       const list = byCategory.get(g.category) || [];
@@ -467,6 +534,25 @@ function formatOnboardingResult(result: OnboardingResult, isDryRun: boolean): st
     }
     for (const [category, names] of byCategory) {
       lines.push(`  ${category}: ${names.length} guideline(s)`);
+    }
+  }
+
+  // Deep Scan
+  if (result.deepScanFindings && result.deepScanFindings.length > 0) {
+    const durationSec = result.deepScanDurationMs
+      ? `${(result.deepScanDurationMs / 1000).toFixed(1)}s`
+      : '';
+    lines.push(
+      `\n**${isDryRun ? 'Would discover' : 'Deep Scan'} Findings:** ${result.deepScanFindings.length}${durationSec ? ` (${durationSec})` : ''}`
+    );
+    const byArea = new Map<string, string[]>();
+    for (const f of result.deepScanFindings) {
+      const list = byArea.get(f.area) || [];
+      list.push(f.title);
+      byArea.set(f.area, list);
+    }
+    for (const [area, titles] of byArea) {
+      lines.push(`  ${area}: ${titles.slice(0, 3).join(', ')}${titles.length > 3 ? '...' : ''}`);
     }
   }
 

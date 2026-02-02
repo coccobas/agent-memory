@@ -264,6 +264,8 @@ export interface OnboardMintoInput {
   };
   importedDocs: Array<{ path: string; type: string }>;
   seededGuidelines: Array<{ name: string; category: string }>;
+  deepScanFindings?: Array<{ area: string; title: string }>;
+  deepScanDurationMs?: number;
   warnings: string[];
   nextSteps: string[];
 }
@@ -287,6 +289,10 @@ export function formatOnboardMinto(input: OnboardMintoInput): string {
   }
   if (input.seededGuidelines.length > 0) {
     doneItems.push(`${input.seededGuidelines.length} guidelines seeded`);
+  }
+  if (input.deepScanFindings && input.deepScanFindings.length > 0) {
+    const areas = [...new Set(input.deepScanFindings.map((f) => f.area))];
+    doneItems.push(`${input.deepScanFindings.length} findings (${areas.join(', ')})`);
   }
   if (doneItems.length > 0) {
     sections.push({ heading: input.dryRun ? 'Would Do' : 'Done', items: doneItems });

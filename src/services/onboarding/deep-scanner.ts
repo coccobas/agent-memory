@@ -146,6 +146,19 @@ export class DeepScannerService implements IDeepScannerService {
       });
     }
 
+    // Detect module boundaries (layered architecture)
+    const moduleBoundaries = this.detectModuleBoundaries(cwd);
+    if (moduleBoundaries) {
+      findings.push({
+        area: 'architecture',
+        title: 'Module Boundaries',
+        content: moduleBoundaries,
+        category: 'decision',
+        confidence: 0.85,
+        source: srcDir,
+      });
+    }
+
     // Detect design patterns from file names
     const patterns = this.detectDesignPatterns(cwd);
     if (patterns.length > 0) {
@@ -156,11 +169,50 @@ export class DeepScannerService implements IDeepScannerService {
         category: 'decision',
         confidence: 0.75,
       });
+
+      const patternGuides = this.generatePatternGuides(patterns, cwd);
+      findings.push(...patternGuides);
     }
 
     const packageJsonPath = join(cwd, 'package.json');
     const scriptFindings = await this.scriptExtractor.extractScripts(packageJsonPath);
     findings.push(...scriptFindings);
+
+    // Detect template directories
+    const templateDirs = this.findDirectories(cwd, ['templates', 'examples', 'boilerplate']);
+    if (templateDirs.length > 0) {
+      const dirNames = templateDirs.map((dir) => basename(dir)).join(', ');
+      findings.push({
+        area: 'architecture',
+        title: 'Template Directories',
+        content: `Template directories found: ${dirNames}. To add new patterns, copy from these template directories.`,
+        category: 'reference',
+        confidence: 0.9,
+        source: templateDirs[0],
+      });
+    }
+
+    // Detect template files (*.template.* or *.example.*)
+    const templateFiles = this.getFilesRecursive(cwd, []).filter((f) =>
+      /\.(template|example)\./.test(f.name)
+    );
+    if (templateFiles.length > 0) {
+      const fileNames = templateFiles
+        .slice(0, 5)
+        .map((f) => basename(f.path))
+        .join(', ');
+      const firstFile = templateFiles[0];
+      if (firstFile) {
+        findings.push({
+          area: 'architecture',
+          title: 'Template Files',
+          content: `Template files found: ${fileNames}. Use these as reference implementations when adding new components.`,
+          category: 'reference',
+          confidence: 0.85,
+          source: firstFile.path,
+        });
+      }
+    }
 
     return this.deduplicateFindings(findings).slice(0, maxFindings);
   }
@@ -573,6 +625,194 @@ export class DeepScannerService implements IDeepScannerService {
     return unique;
   }
 
+  private detectModuleBoundaries(cwd: string): string | null {
+    const srcDir = join(cwd, 'src');
+    if (!existsSync(srcDir)) return null;
+
+    const topLevelDirs = this.getDirectories(srcDir);
+    if (topLevelDirs.length === 0) return null;
+
+    const layers: string[] = [];
+    const descriptions: string[] = [];
+
+    const hasHandlers = topLevelDirs.some((d) => d.toLowerCase().includes('handler'));
+    const hasServices = topLevelDirs.some((d) => d.toLowerCase().includes('service'));
+    const hasRepositories = topLevelDirs.some(
+      (d) => d.toLowerCase().includes('repositor') || d.toLowerCase().includes('db')
+    );
+    const hasMcp = topLevelDirs.some((d) => d.toLowerCase() === 'mcp');
+    const hasRestApi = topLevelDirs.some((d) => d.toLowerCase().includes('restapi'));
+
+    if (hasHandlers || hasMcp || hasRestApi) {
+      if (hasMcp) {
+        layers.push('MCP handlers');
+        descriptions.push('MCP handlers expose tools to AI agents');
+      }
+      if (hasRestApi) {
+        layers.push('REST API routes');
+        descriptions.push('REST API routes handle HTTP requests');
+      }
+      if (hasHandlers && !hasMcp && !hasRestApi) {
+        layers.push('handlers');
+        descriptions.push('Handlers process incoming requests');
+      }
+    }
+
+    if (hasServices) {
+      layers.push('services');
+      descriptions.push('Services contain business logic');
+    }
+
+    if (hasRepositories) {
+      layers.push('repositories');
+      descriptions.push('Repositories handle data access');
+    }
+
+    if (layers.length === 0) return null;
+
+    let content = `Layered architecture detected: ${layers.join(' → ')}. `;
+    content += descriptions.join('. ') + '.';
+
+    if (layers.length >= 2) {
+      if (hasHandlers || hasMcp || hasRestApi) {
+        const handlerLayer = hasMcp ? 'MCP handlers' : hasRestApi ? 'REST routes' : 'Handlers';
+        if (hasServices) {
+          content += ` ${handlerLayer} call services for business logic.`;
+        }
+        if (hasRepositories && hasServices) {
+          content += ' Services use repositories for data access.';
+        } else if (hasRepositories) {
+          content += ` ${handlerLayer} use repositories for data access.`;
+        }
+      }
+    }
+
+    return content;
+  }
+
+  private generatePatternGuides(patterns: string[]): DeepScanFinding[] {
+    const guides: DeepScanFinding[] = [];
+
+    for (const pattern of patterns) {
+      const guide = this.createPatternGuide(pattern);
+      if (guide) {
+        guides.push(guide);
+      }
+    }
+
+    return guides;
+  }
+
+  private createPatternGuide(pattern: string): DeepScanFinding | null {
+    const patternGuides: Record<string, { title: string; steps: string[]; confidence: number }> = {
+      'Repository Pattern': {
+        title: 'How to add new Repository',
+        steps: [
+          'Create interface in src/core/interfaces/repositories/',
+          'Implement repository in src/db/repositories/',
+          'Export from src/db/repositories/index.ts',
+        ],
+        confidence: 0.8,
+      },
+      'Handler Pattern': {
+        title: 'How to add new Handler',
+        steps: [
+          'Create descriptor in src/mcp/descriptors/',
+          'Create handler in src/mcp/handlers/',
+          'Register in src/mcp/handlers/index.ts',
+        ],
+        confidence: 0.8,
+      },
+      'Service Layer': {
+        title: 'How to add new Service',
+        steps: [
+          'Create interface in src/services/',
+          'Implement service class in src/services/',
+          'Export from src/services/index.ts',
+        ],
+        confidence: 0.8,
+      },
+      'Factory Pattern': {
+        title: 'How to add new Factory',
+        steps: [
+          'Create factory function with create* naming',
+          'Accept configuration parameters',
+          'Return configured instance',
+        ],
+        confidence: 0.75,
+      },
+      'Adapter Pattern': {
+        title: 'How to add new Adapter',
+        steps: [
+          'Define target interface',
+          'Create adapter class implementing interface',
+          'Wrap external dependency in adapter',
+        ],
+        confidence: 0.75,
+      },
+      'Strategy Pattern': {
+        title: 'How to add new Strategy',
+        steps: [
+          'Define strategy interface',
+          'Implement concrete strategy',
+          'Register strategy in strategy map',
+        ],
+        confidence: 0.75,
+      },
+      'Dependency Injection': {
+        title: 'How to add new Injectable',
+        steps: [
+          'Define interface for dependency',
+          'Register in DI container',
+          'Inject via constructor parameters',
+        ],
+        confidence: 0.75,
+      },
+      'Pipeline Pattern': {
+        title: 'How to add new Pipeline Stage',
+        steps: [
+          'Create stage function with consistent signature',
+          'Add stage to pipeline configuration',
+          'Handle errors and pass context',
+        ],
+        confidence: 0.75,
+      },
+      'Decorator Pattern': {
+        title: 'How to add new Decorator',
+        steps: [
+          'Create decorator function wrapping target',
+          'Preserve original interface',
+          'Add enhanced behavior',
+        ],
+        confidence: 0.75,
+      },
+      'Observer/Event Pattern': {
+        title: 'How to add new Event Handler',
+        steps: [
+          'Define event type',
+          'Create handler function',
+          'Register handler with event emitter',
+        ],
+        confidence: 0.75,
+      },
+    };
+
+    const guideConfig = patternGuides[pattern];
+    if (!guideConfig) return null;
+
+    const steps = guideConfig.steps.map((step, idx) => `${idx + 1}) ${step}`).join('\n');
+    const content = `To add new ${guideConfig.title.replace('How to add new ', '')}:\n${steps}`;
+
+    return {
+      area: 'architecture',
+      title: guideConfig.title,
+      content,
+      category: 'reference',
+      confidence: guideConfig.confidence,
+      source: 'pattern detection',
+    };
+  }
+
   private detectDesignPatterns(cwd: string): string[] {
     const patterns: string[] = [];
     const srcDir = join(cwd, 'src');
@@ -582,7 +822,6 @@ export class DeepScannerService implements IDeepScannerService {
     const allFiles = this.getFilesRecursive(srcDir, ['.ts']);
     const fileNames = allFiles.map((f) => f.name.toLowerCase());
 
-    // Pattern detection based on file naming conventions
     if (fileNames.some((n) => n.includes('repository') || n.includes('.repo.'))) {
       patterns.push('Repository Pattern');
     }

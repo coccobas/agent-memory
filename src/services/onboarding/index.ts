@@ -24,6 +24,12 @@ export {
   type GuidelineRepository,
 } from './guideline-seeder.js';
 
+export {
+  DeepScannerService,
+  createDeepScannerService,
+  type IDeepScannerService,
+} from './deep-scanner.js';
+
 // Templates
 export {
   TYPESCRIPT_GUIDELINES,

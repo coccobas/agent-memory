@@ -198,3 +198,16 @@ export interface IGuidelineSeederService {
     agentId: string
   ): Promise<SeededResult>;
 }
+
+export interface IScriptExtractorService {
+  extractScripts(packageJsonPath: string): Promise<DeepScanFinding[]>;
+}
+
+export interface IAdrParserService {
+  parseAdr(adrPath: string): Promise<DeepScanFinding[]>;
+  parseAdrDirectory(adrDir: string): Promise<DeepScanFinding[]>;
+}
+
+export interface IWorkflowExtractorService {
+  extractWorkflows(contributingPath: string): Promise<DeepScanFinding[]>;
+}

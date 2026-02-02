@@ -70,20 +70,22 @@ export function Sidebar() {
     <aside
       data-testid="sidebar"
       className={cn(
-        'flex flex-col border-r border-border bg-card transition-all duration-300',
+        'flex flex-col border-r border-white/5 glass transition-all duration-300 z-20',
         sidebarCollapsed ? 'w-16' : 'w-64'
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b border-border px-4">
+      <div className="flex h-16 items-center justify-between border-b border-white/5 px-4">
         {!sidebarCollapsed && (
-          <span className="text-lg font-semibold text-foreground">Agent Memory</span>
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-br from-white to-white/40 bg-clip-text text-transparent">
+            Agent Memory
+          </span>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
           aria-label="Toggle sidebar"
-          className={cn(sidebarCollapsed && 'mx-auto')}
+          className={cn("text-muted-foreground hover:text-white transition-colors", sidebarCollapsed && 'mx-auto')}
         >
           {sidebarCollapsed ? (
             <ChevronRight className="h-4 w-4" />
@@ -93,16 +95,16 @@ export function Sidebar() {
         </Button>
       </div>
 
-      <nav className="flex-1 space-y-4 p-2">
+      <nav className="flex-1 space-y-6 p-3 overflow-y-auto scrollbar-thin">
         {navSections.map((section, sectionIndex) => (
           <div key={section.title ?? 'main'} className="space-y-1">
             {section.title && !sidebarCollapsed && (
-              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <h3 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">
                 {section.title}
               </h3>
             )}
             {section.title && sidebarCollapsed && sectionIndex > 0 && (
-              <div className="mx-3 border-t border-border" />
+              <div className="mx-3 border-t border-white/5 my-4" />
             )}
             {section.items.map((item) => {
               const isActive = location.pathname === item.path;
@@ -113,14 +115,20 @@ export function Sidebar() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 group relative',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      ? 'bg-primary/10 text-primary shadow-[0_0_20px_rgba(99,102,241,0.1)]'
+                      : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
                     sidebarCollapsed && 'justify-center px-2'
                   )}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  {isActive && (
+                    <div className="absolute left-0 w-1 h-5 bg-primary rounded-r-full" />
+                  )}
+                  <Icon className={cn(
+                    "h-5 w-5 shrink-0 transition-transform duration-200",
+                    isActive ? "scale-110" : "group-hover:scale-110"
+                  )} />
                   {!sidebarCollapsed && <span>{item.label}</span>}
                 </Link>
               );

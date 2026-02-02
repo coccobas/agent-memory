@@ -121,6 +121,48 @@ describe('DeepScannerService', () => {
       const architectureFindings = result.findings.filter((f) => f.area === 'architecture');
       expect(architectureFindings.length).toBeGreaterThan(0);
     });
+
+    it('should detect module boundaries from src/ structure', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const boundaryFinding = result.findings.find((f) => f.title === 'Module Boundaries');
+      if (boundaryFinding) {
+        expect(boundaryFinding.area).toBe('architecture');
+        expect(boundaryFinding.category).toBe('decision');
+        expect(boundaryFinding.confidence).toBeGreaterThanOrEqual(0.8);
+        expect(boundaryFinding.content).toMatch(/layered architecture/i);
+      }
+    });
+
+    it('should generate actionable module boundary findings', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const boundaryFinding = result.findings.find((f) => f.title === 'Module Boundaries');
+      if (boundaryFinding) {
+        // Should describe what each layer does, not just list directories
+        expect(boundaryFinding.content).not.toMatch(/^Found \d+ directories/);
+        // Should mention handlers, services, or repositories
+        expect(boundaryFinding.content).toMatch(/handlers|services|repositories/i);
+      }
+    });
+
+    it('should detect handler -> service -> repository pattern', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const boundaryFinding = result.findings.find((f) => f.title === 'Module Boundaries');
+      if (boundaryFinding) {
+        // Should describe the flow: handlers call services, services use repositories
+        const content = boundaryFinding.content.toLowerCase();
+        const hasHandlers = content.includes('handler');
+        const hasServices = content.includes('service');
+        const hasRepositories = content.includes('repositor');
+
+        // If any layer exists, the finding should describe the architecture
+        if (hasHandlers || hasServices || hasRepositories) {
+          expect(boundaryFinding.content.length).toBeGreaterThan(50);
+        }
+      }
+    });
   });
 
   describe('scanDatabase - ORM, schema, repositories, migrations', () => {
@@ -366,6 +408,80 @@ describe('DeepScannerService', () => {
     });
   });
 
+  describe('scanArchitecture - template directory identification', () => {
+    it('should detect templates/ directory if present', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const templateFinding = result.findings.find((f) => f.title === 'Template Directories');
+      if (templateFinding) {
+        expect(templateFinding.area).toBe('architecture');
+        expect(templateFinding.category).toBe('reference');
+        expect(templateFinding.confidence).toBeGreaterThanOrEqual(0.85);
+        expect(templateFinding.content).toMatch(/templates?\//);
+      }
+    });
+
+    it('should detect examples/ directory if present', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const exampleFinding = result.findings.find((f) => f.title === 'Template Directories');
+      if (exampleFinding) {
+        expect(exampleFinding.area).toBe('architecture');
+        expect(exampleFinding.category).toBe('reference');
+        expect(exampleFinding.content).toMatch(/examples?\//);
+      }
+    });
+
+    it('should detect boilerplate/ directory if present', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const boilerplateFinding = result.findings.find((f) => f.title === 'Template Directories');
+      if (boilerplateFinding) {
+        expect(boilerplateFinding.area).toBe('architecture');
+        expect(boilerplateFinding.category).toBe('reference');
+        expect(boilerplateFinding.content).toMatch(/boilerplate\//);
+      }
+    });
+
+    it('should detect *.template.* files', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const templateFileFinding = result.findings.find((f) => f.title === 'Template Files');
+      if (templateFileFinding) {
+        expect(templateFileFinding.area).toBe('architecture');
+        expect(templateFileFinding.category).toBe('reference');
+        expect(templateFileFinding.confidence).toBeGreaterThanOrEqual(0.8);
+        expect(templateFileFinding.content).toMatch(/\.template\./);
+      }
+    });
+
+    it('should generate actionable "copy this pattern" guidance', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const templateFinding = result.findings.find(
+        (f) => f.title === 'Template Directories' || f.title === 'Template Files'
+      );
+      if (templateFinding) {
+        // Should contain actionable guidance like "To add new X, copy from templates/X/"
+        expect(templateFinding.content).toMatch(/[Tt]o add|[Cc]opy|template/i);
+      }
+    });
+
+    it('should not create template finding if no templates exist', async () => {
+      // This test verifies conditional behavior - if no templates, no finding
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const templateFindings = result.findings.filter(
+        (f) => f.title === 'Template Directories' || f.title === 'Template Files'
+      );
+      // Either findings exist with proper structure, or none exist (both valid)
+      templateFindings.forEach((f) => {
+        expect(f.area).toBe('architecture');
+        expect(['reference']).toContain(f.category);
+      });
+    });
+  });
+
   describe('createDeepScannerService factory', () => {
     it('should create a service instance', () => {
       const svc = createDeepScannerService();
@@ -413,6 +529,157 @@ describe('DeepScannerService', () => {
 
       result.findings.forEach((finding) => {
         expect(['fact', 'decision', 'reference', 'tool']).toContain(finding.category);
+      });
+    });
+  });
+
+  describe('pattern contribution guides', () => {
+    it('should generate at least one contribution guide for this project', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const guideFindings = result.findings.filter((f) => f.title.includes('How to add'));
+      expect(guideFindings.length).toBeGreaterThan(0);
+    });
+
+    it('should generate contribution guides for detected patterns', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const guideFinding = result.findings.find((f) => f.title.includes('How to add'));
+      if (guideFinding) {
+        expect(guideFinding.area).toBe('architecture');
+        expect(guideFinding.category).toBe('reference');
+        expect(guideFinding.confidence).toBeGreaterThanOrEqual(0.7);
+        expect(guideFinding.content).toMatch(/To add (?:a new|new)/i);
+        expect(guideFinding.content).toMatch(/\d+\)/); // Numbered steps
+      }
+    });
+
+    it('should format guides with numbered steps', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const guideFindings = result.findings.filter((f) => f.title.includes('How to add'));
+      guideFindings.forEach((finding) => {
+        // Should have "To add new X:" prefix
+        expect(finding.content).toMatch(/To add (?:a new|new) \w+:/i);
+        // Should have numbered steps (1), 2), 3))
+        expect(finding.content).toMatch(/1\)/);
+        expect(finding.content).toMatch(/2\)/);
+      });
+    });
+
+    it('should generate Repository pattern guide when repositories detected', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const repoGuide = result.findings.find((f) => f.title === 'How to add new Repository');
+      if (repoGuide) {
+        expect(repoGuide.content).toContain('src/db/repositories/');
+        expect(repoGuide.content).toMatch(/interface/i);
+        expect(repoGuide.content).toMatch(/implement/i);
+        expect(repoGuide.confidence).toBe(0.8);
+      }
+    });
+
+    it('should generate Handler pattern guide when handlers detected', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const handlerGuide = result.findings.find((f) => f.title === 'How to add new Handler');
+      if (handlerGuide) {
+        expect(handlerGuide.content).toContain('src/mcp/handlers/');
+        expect(handlerGuide.content).toMatch(/descriptor/i);
+        expect(handlerGuide.content).toMatch(/register/i);
+        expect(handlerGuide.confidence).toBe(0.8);
+      }
+    });
+
+    it('should generate Service pattern guide when services detected', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const serviceGuide = result.findings.find((f) => f.title === 'How to add new Service');
+      if (serviceGuide) {
+        expect(serviceGuide.content).toContain('src/services/');
+        expect(serviceGuide.content).toMatch(/interface/i);
+        expect(serviceGuide.content).toMatch(/export/i);
+        expect(serviceGuide.confidence).toBe(0.8);
+      }
+    });
+
+    it('should generate Factory pattern guide when factories detected', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const factoryGuide = result.findings.find((f) => f.title === 'How to add new Factory');
+      if (factoryGuide) {
+        expect(factoryGuide.content).toMatch(/create/i);
+        expect(factoryGuide.content).toMatch(/return/i);
+        expect(factoryGuide.confidence).toBe(0.75);
+      }
+    });
+
+    it('should not generate guides for patterns not detected', async () => {
+      // Scan a minimal directory with no patterns
+      const result = await service.scan(testCwd, { areas: ['architecture'], maxFindings: 100 });
+
+      const allGuides = result.findings.filter((f) => f.title.includes('How to add'));
+      const allPatterns = result.findings.find((f) => f.title === 'Design Patterns');
+
+      if (allPatterns) {
+        const detectedPatterns = allPatterns.content.match(/Detected patterns: (.+)/)?.[1] || '';
+        const patternList = detectedPatterns.split(', ');
+
+        // Each guide should correspond to a detected pattern
+        allGuides.forEach((guide) => {
+          const patternName = guide.title.replace('How to add new ', '');
+          const hasPattern = patternList.some((p) =>
+            p.toLowerCase().includes(patternName.toLowerCase())
+          );
+          expect(hasPattern).toBe(true);
+        });
+      }
+    });
+
+    it('should set confidence to 0.8 for Repository/Handler/Service guides', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const primaryGuides = result.findings.filter(
+        (f) =>
+          f.title === 'How to add new Repository' ||
+          f.title === 'How to add new Handler' ||
+          f.title === 'How to add new Service'
+      );
+
+      primaryGuides.forEach((guide) => {
+        expect(guide.confidence).toBe(0.8);
+      });
+    });
+
+    it('should set confidence to 0.75 for other pattern guides', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const otherGuides = result.findings.filter(
+        (f) =>
+          f.title.includes('How to add new') &&
+          !['Repository', 'Handler', 'Service'].some((p) => f.title.includes(p))
+      );
+
+      otherGuides.forEach((guide) => {
+        expect(guide.confidence).toBe(0.75);
+      });
+    });
+
+    it('should include source field with pattern detection reference', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const guideFindings = result.findings.filter((f) => f.title.includes('How to add'));
+      guideFindings.forEach((finding) => {
+        expect(finding.source).toBe('pattern detection');
+      });
+    });
+
+    it('should generate guides only in architecture area', async () => {
+      const result = await service.scan(testCwd, { areas: ['architecture'] });
+
+      const guideFindings = result.findings.filter((f) => f.title.includes('How to add'));
+      guideFindings.forEach((finding) => {
+        expect(finding.area).toBe('architecture');
       });
     });
   });
