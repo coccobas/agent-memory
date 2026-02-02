@@ -180,3 +180,19 @@ export {
   type HybridExtractionResult,
   type PendingSuggestion,
 } from './hybrid-extractor.js';
+
+// =============================================================================
+// TOPIC EXTRACTOR - Extract topic names from user messages
+// =============================================================================
+
+export {
+  TopicExtractor,
+  createTopicExtractor,
+  getDefaultTopicExtractor,
+  resetDefaultTopicExtractor,
+  extractTopicName,
+  resetTopicCounter,
+  DEFAULT_TOPIC_EXTRACTOR_CONFIG,
+  type TopicExtractorConfig,
+  type TopicExtractionResult,
+} from './topic-extractor.js';
