@@ -83,6 +83,7 @@ docs/guides/security.md
 
 # Prompts (not tracked)
 prompts/
+!src/services/onboarding/llm/prompts/
 
 
 # Test scripts
