@@ -28,6 +28,7 @@ import { createTypeRegistry } from '../../services/graph/index.js';
 import { createTaskRepository } from '../../db/repositories/tasks.js';
 import { createEvidenceRepository } from '../../db/repositories/evidence.js';
 import { createEpisodeRepository } from '../../db/repositories/episodes.js';
+import { createTopicRepository } from '../../db/repositories/topics.js';
 import { createHookMetricsRepository } from '../../db/repositories/hook-metrics.js';
 import { createIDETranscriptRepository } from '../../db/repositories/ide-transcripts.js';
 import { createErrorLogRepository } from '../../db/repositories/error-log.js';
@@ -71,6 +72,8 @@ export function createRepositories(deps: DatabaseDeps): Repositories {
     evidence: createEvidenceRepository(deps),
     // Episode repository (Temporal Activity Grouping)
     episodes: createEpisodeRepository(deps),
+    // Topic repository (Persistent Work Contexts)
+    topics: createTopicRepository(deps),
     // Hook metrics repository (Claude Code hook analytics)
     hookMetrics: createHookMetricsRepository(deps.db),
     // IDE Transcripts (Immutable conversation archive)

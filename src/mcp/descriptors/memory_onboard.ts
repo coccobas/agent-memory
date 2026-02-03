@@ -10,12 +10,14 @@
  * This reduces new project setup from manual multi-step process to one call.
  */
 
+import { OpenAI } from 'openai';
 import type { SimpleToolDescriptor } from './types.js';
 import type {
   OnboardingResult,
   TechStackInfo,
   ScannedDoc,
   DetectedProjectInfo,
+  LlmCallFunction,
 } from '../../services/onboarding/types.js';
 import type { ScopeType } from '../../db/schema.js';
 import {
@@ -28,6 +30,49 @@ import {
 import { formatOnboardMinto, type OnboardMintoInput } from '../../utils/minto-formatter.js';
 import { getWorkingDirectoryAsync } from '../../utils/working-directory.js';
 import { config } from '../../config/index.js';
+import { createComponentLogger } from '../../utils/logger.js';
+
+const logger = createComponentLogger('onboard');
+
+/**
+ * Create an LLM call function using the extraction config (defaults to LM Studio).
+ * Uses OpenAI-compatible API at the configured base URL.
+ */
+function createLlmCallFn(): LlmCallFunction {
+  const client = new OpenAI({
+    apiKey: config.extraction.openaiApiKey || 'lm-studio', // LM Studio doesn't need real key
+    baseURL: config.extraction.openaiBaseUrl || 'http://localhost:1234/v1',
+    timeout: config.extraction.timeoutMs,
+    maxRetries: 0,
+  });
+
+  return async (prompt: string): Promise<unknown> => {
+    try {
+      const response = await client.chat.completions.create({
+        model: config.extraction.openaiModel,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: config.extraction.temperature,
+        max_tokens: config.extraction.maxTokens,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        logger.warn('LLM returned empty content');
+        return { guides: [] };
+      }
+
+      // Try to parse as JSON, return raw string if not valid JSON
+      try {
+        return JSON.parse(content) as unknown;
+      } catch {
+        return content;
+      }
+    } catch (error) {
+      logger.error({ err: error }, 'LLM call failed');
+      throw error;
+    }
+  };
+}
 
 export const memoryOnboardDescriptor: SimpleToolDescriptor = {
   name: 'memory_onboard',
@@ -92,11 +137,16 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
       useLlm: (args?.useLlm as boolean) ?? false,
     };
 
-    // Validate useLlm flag
-    if (options.useLlm && !config.extraction.openaiApiKey) {
+    // Validate useLlm flag - allow if API key is set OR if using local LM Studio (default baseURL)
+    const isUsingLocalLmStudio =
+      !config.extraction.openaiBaseUrl ||
+      config.extraction.openaiBaseUrl.includes('localhost') ||
+      config.extraction.openaiBaseUrl.includes('127.0.0.1');
+
+    if (options.useLlm && !config.extraction.openaiApiKey && !isUsingLocalLmStudio) {
       throw new Error(
-        '--useLlm requires AGENT_MEMORY_OPENAI_API_KEY to be set. ' +
-          'Please configure the API key or disable LLM mode.'
+        '--useLlm requires either AGENT_MEMORY_OPENAI_API_KEY to be set or a local LM Studio instance. ' +
+          'Please configure the API key or ensure LM Studio is running at localhost:1234.'
       );
     }
 
@@ -211,7 +261,10 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
 
       if (options.deepScan) {
         const deepScanner = createDeepScannerService();
-        const deepScanResult = await deepScanner.scan(cwd);
+        const deepScanResult = await deepScanner.scan(cwd, {
+          useLlm: options.useLlm,
+          llmCallFn: options.useLlm ? createLlmCallFn() : undefined,
+        });
         result.deepScanFindings = deepScanResult.findings;
         result.deepScanDurationMs = deepScanResult.durationMs;
         nextSteps.push(
@@ -374,7 +427,10 @@ export const memoryOnboardDescriptor: SimpleToolDescriptor = {
     if (options.deepScan && projectId && ctx.repos.knowledge) {
       try {
         const deepScanner = createDeepScannerService();
-        const deepScanResult = await deepScanner.scan(cwd);
+        const deepScanResult = await deepScanner.scan(cwd, {
+          useLlm: options.useLlm,
+          llmCallFn: options.useLlm ? createLlmCallFn() : undefined,
+        });
 
         result.deepScanFindings = deepScanResult.findings;
         result.deepScanDurationMs = deepScanResult.durationMs;

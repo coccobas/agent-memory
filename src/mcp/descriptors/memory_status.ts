@@ -33,7 +33,7 @@ export interface StatusResult {
   };
   topEntries?: {
     guidelines: Array<{ id: string; name: string; priority: number }>;
-    knowledge: Array<{ id: string; title: string }>;
+    knowledge: Array<{ id: string; title: string; category?: string }>;
   };
   health?: {
     score: number;
@@ -129,6 +129,7 @@ When displaying to users, output the \`_display\` content verbatim instead of re
         knowledge: knowledgeList.slice(0, 5).map((k) => ({
           id: k.id,
           title: k.title,
+          category: k.category ?? undefined,
         })),
       };
     }

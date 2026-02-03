@@ -17,15 +17,18 @@ import type {
   DeepScanResult,
   DeepScanOptions,
   LlmCallFunction,
+  LlmEnrichmentConfig,
 } from './types.js';
+import { normalizeLlmConfig } from './types.js';
 import { ScriptExtractorService } from './script-extractor.js';
 import { AdrParserService } from './adr-parser.js';
 import { WorkflowExtractorService } from './workflow-extractor.js';
 import { LlmExtractorService, type LlmCallFn } from './llm-extractor.js';
 import type { CodebaseContext } from '../extraction/prompts.js';
+import { createOnboardingLlmEnricherService, type LlmEnrichmentResult } from './llm/index.js';
 
 interface LlmOptions {
-  useLlm: boolean;
+  llmConfig: LlmEnrichmentConfig | null;
   llmCallFn?: LlmCallFunction;
 }
 
@@ -56,11 +59,14 @@ export class DeepScannerService implements IDeepScannerService {
 
   async scan(cwd: string, options?: DeepScanOptions): Promise<DeepScanResult> {
     this.seenFindings.clear();
+    const llmConfig = normalizeLlmConfig(options?.useLlm);
     const opts = {
-      areas: options?.areas ?? DEFAULT_OPTIONS.areas!,
-      maxFindings: options?.maxFindings ?? DEFAULT_OPTIONS.maxFindings!,
-      timeout: options?.timeout ?? DEFAULT_OPTIONS.timeout!,
-      useLlm: options?.useLlm ?? false,
+      areas:
+        options?.areas ??
+        (DEFAULT_OPTIONS.areas || ['architecture', 'database', 'api', 'testing', 'documentation']),
+      maxFindings: options?.maxFindings ?? (DEFAULT_OPTIONS.maxFindings || 10),
+      timeout: options?.timeout ?? (DEFAULT_OPTIONS.timeout || 120000),
+      llmConfig,
       llmCallFn: options?.llmCallFn,
     };
     const startTime = Date.now();
@@ -83,9 +89,19 @@ export class DeepScannerService implements IDeepScannerService {
       }
     }
 
+    if (llmConfig?.enabled && opts.llmCallFn && Date.now() - startTime < opts.timeout) {
+      const enricherResult = await this.runLlmEnrichment(cwd, llmConfig, opts.llmCallFn, findings);
+      if (enricherResult.findings.length > 0) {
+        findings.push(...enricherResult.findings);
+      }
+      if (enricherResult.errors.length > 0) {
+        errors.push(...enricherResult.errors.map((e: string) => `LLM enrichment: ${e}`));
+      }
+    }
+
     return {
       success: errors.length === 0,
-      findings,
+      findings: this.deduplicateFindings(findings),
       areasScanned,
       durationMs: Date.now() - startTime,
       errors,
@@ -190,7 +206,7 @@ export class DeepScannerService implements IDeepScannerService {
         confidence: 0.75,
       });
 
-      if (llmOpts.useLlm && llmOpts.llmCallFn) {
+      if (llmOpts.llmConfig?.enabled && llmOpts.llmCallFn) {
         const llmFindings = await this.extractWithLlm(cwd, patterns, llmOpts.llmCallFn);
         if (llmFindings.length > 0) {
           findings.push(...llmFindings);
@@ -289,6 +305,31 @@ export class DeepScannerService implements IDeepScannerService {
     } catch {
       return [];
     }
+  }
+
+  private async runLlmEnrichment(
+    cwd: string,
+    config: LlmEnrichmentConfig,
+    llmCallFn: LlmCallFunction,
+    existingFindings: DeepScanFinding[]
+  ): Promise<LlmEnrichmentResult> {
+    const detectedPatterns = existingFindings
+      .filter((f) => f.title === 'Design Patterns')
+      .flatMap((f) => f.content.replace('Detected patterns: ', '').split(', '));
+
+    const projectNameFinding = existingFindings.find((f) => f.title === 'Entry Points');
+    const projectName = projectNameFinding?.source
+      ? basename(projectNameFinding.source.replace(/\/src\/.*$/, ''))
+      : undefined;
+
+    const enricher = createOnboardingLlmEnricherService();
+    return enricher.enrich({
+      cwd,
+      projectName,
+      detectedPatterns,
+      config,
+      llmCallFn,
+    });
   }
 
   private async scanDatabase(cwd: string, maxFindings: number): Promise<DeepScanFinding[]> {

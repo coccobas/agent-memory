@@ -565,7 +565,7 @@ interface StatusResponse {
   counts: { guidelines: number; knowledge: number; tools: number; sessions: number };
   topEntries?: {
     guidelines: Array<{ id: string; name: string; priority: number }>;
-    knowledge: Array<{ id: string; title: string }>;
+    knowledge: Array<{ id: string; title: string; category?: string }>;
   };
   /** Optional health metrics */
   health?: {
@@ -681,7 +681,8 @@ export function formatStatusTerminal(status: StatusResponse): string {
       lines.push('');
       lines.push(`${icons.knowledge} Top Knowledge:`);
       for (const k of status.topEntries.knowledge.slice(0, 5)) {
-        lines.push(`  ${icons.branch} ${k.title}`);
+        const categoryStr = k.category ? ` [${k.category}]` : '';
+        lines.push(`  ${icons.branch} ${k.title}${categoryStr}`);
       }
     }
   }
