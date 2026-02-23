@@ -28,6 +28,51 @@ const ALLOWED_GET_EVENT_BUS_USAGE = new Set<string>([
   'src/core/adapters/local-event.adapter.ts',
 ]);
 
+type V2Module = 'contracts' | 'kernel' | 'write' | 'read' | 'indexing' | 'adapters' | 'mcp';
+
+const V2_ALLOWED_DEPENDENCIES: Record<V2Module, ReadonlySet<V2Module>> = {
+  contracts: new Set(),
+  kernel: new Set(),
+  write: new Set(['contracts', 'kernel']),
+  read: new Set(['contracts', 'kernel']),
+  indexing: new Set(['contracts', 'kernel']),
+  adapters: new Set(['contracts', 'kernel', 'write', 'read', 'indexing']),
+  mcp: new Set(['contracts', 'kernel', 'write', 'read', 'indexing']),
+};
+
+function isV2Module(value: string): value is V2Module {
+  return (
+    value === 'contracts' ||
+    value === 'kernel' ||
+    value === 'write' ||
+    value === 'read' ||
+    value === 'indexing' ||
+    value === 'adapters' ||
+    value === 'mcp'
+  );
+}
+
+function getV2ModuleFromRelativePath(relPath: string): V2Module | null {
+  const parts = relPath.split('/');
+  if (parts[0] !== 'src' || parts[1] !== 'v2') return null;
+  const module = parts[2];
+  if (!module || !isV2Module(module)) return null;
+  return module;
+}
+
+function normalizeImportTarget(fromFile: string, specifier: string): string {
+  const fromDir = path.dirname(path.join(REPO_ROOT, fromFile));
+  const targetAbsolute = path.resolve(fromDir, specifier);
+  const relative = path.relative(REPO_ROOT, targetAbsolute).split(path.sep).join('/');
+  return relative.replace(/\.(ts|js)$/, '');
+}
+
+function isCrossModulePublicImport(specifier: string, targetModule: V2Module): boolean {
+  const patternA = new RegExp(String.raw`^\.\.\/${targetModule}(\/index(\.js)?)?$`);
+  const patternB = new RegExp(String.raw`^(\.\.\/)+${targetModule}(\/index(\.js)?)?$`);
+  return patternA.test(specifier) || patternB.test(specifier);
+}
+
 function toRepoRelative(filePath: string): string {
   return path.relative(REPO_ROOT, filePath).split(path.sep).join('/');
 }
@@ -85,6 +130,38 @@ async function main(): Promise<void> {
         message:
           'Disallowed new `export function get*Service()` singleton accessor. Add the service to Runtime/AppContext wiring instead (legacy allowlist exists).',
       });
+    }
+
+    // V2 modular dependency checks
+    const currentV2Module = getV2ModuleFromRelativePath(rel);
+    if (currentV2Module) {
+      const importRegex = /from\s+['"]([^'"]+)['"]/g;
+      for (const match of content.matchAll(importRegex)) {
+        const specifier = match[1];
+        if (!specifier || !specifier.startsWith('.')) continue;
+
+        const normalizedTarget = normalizeImportTarget(rel, specifier);
+        const targetV2Module = getV2ModuleFromRelativePath(normalizedTarget);
+        if (!targetV2Module) continue;
+
+        if (targetV2Module === currentV2Module) continue;
+
+        const allowedDependencies = V2_ALLOWED_DEPENDENCIES[currentV2Module];
+        if (!allowedDependencies.has(targetV2Module)) {
+          findings.push({
+            file: rel,
+            message: `V2 boundary violation: module '${currentV2Module}' may not import '${targetV2Module}'`,
+          });
+          continue;
+        }
+
+        if (!isCrossModulePublicImport(specifier, targetV2Module)) {
+          findings.push({
+            file: rel,
+            message: `V2 public surface violation: cross-module imports must go through '${targetV2Module}/index.ts'`,
+          });
+        }
+      }
     }
   }
 

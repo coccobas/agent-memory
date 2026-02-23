@@ -21,6 +21,8 @@ import { memoryTagDescriptor } from './memory_tag.js';
 import { memoryRelationDescriptor } from './memory_relation.js';
 import { memoryFileLockDescriptor } from './memory_file_lock.js';
 import { memoryQueryDescriptor } from './memory_query.js';
+import { memoryWriteDescriptor } from './memory_write.js';
+import { memoryProjectorDescriptor } from './memory_projector.js';
 import { memoryDecompositionDescriptor } from './memory_decomposition.js';
 import { memoryTaskDescriptor } from './memory_task.js';
 import { memoryVotingDescriptor } from './memory_voting.js';
@@ -136,6 +138,10 @@ export const allDescriptors: AnyToolDescriptor[] = [
   memoryFileLockDescriptor,
   // Query
   memoryQueryDescriptor,
+  // Structured write API (V2)
+  memoryWriteDescriptor,
+  // Projector control (V2)
+  memoryProjectorDescriptor,
   // Task Decomposition
   memoryDecompositionDescriptor,
   // Work Items and Tasks
@@ -260,6 +266,8 @@ export {
   memoryRelationDescriptor,
   memoryFileLockDescriptor,
   memoryQueryDescriptor,
+  memoryWriteDescriptor,
+  memoryProjectorDescriptor,
   memoryDecompositionDescriptor,
   memoryTaskDescriptor,
   memoryVotingDescriptor,

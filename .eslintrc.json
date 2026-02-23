@@ -69,6 +69,61 @@
       "rules": {
         "@typescript-eslint/no-redundant-type-constituents": "off"
       }
+    },
+    {
+      "files": ["src/v2/contracts/**/*.ts", "src/v2/kernel/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["../write/*", "../read/*", "../indexing/*", "../adapters/*", "../mcp/*"]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/v2/write/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["../read/*", "../indexing/*", "../adapters/*", "../mcp/*"]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/v2/read/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["../write/*", "../indexing/*", "../adapters/*", "../mcp/*"]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/v2/indexing/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["../write/*", "../read/*", "../adapters/*", "../mcp/*"]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/v2/mcp/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["../adapters/*"]
+          }
+        ]
+      }
     }
   ]
 }
