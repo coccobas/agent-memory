@@ -49,7 +49,7 @@ const navSections: NavSection[] = [
     items: [
       { path: '/tasks', label: 'Tasks', icon: CheckSquare },
       { path: '/topics', label: 'Topics', icon: FolderKanban },
-      { path: '/sessions', label: 'Sessions', icon: Clock },
+      { path: '/sessions', label: 'Sessions (Legacy)', icon: Clock },
     ],
   },
   {

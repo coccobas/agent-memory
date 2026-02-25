@@ -136,6 +136,127 @@ async function fetchAllByOffset<T>(
   return allItems;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function normalizeCursorMeta(meta: unknown, returnedCount: number): CursorPaginationMeta {
+  const record = asRecord(meta);
+  if (!record) {
+    return {
+      returnedCount,
+      hasMore: false,
+    };
+  }
+
+  return {
+    returnedCount: asNumber(record.returnedCount) ?? returnedCount,
+    hasMore: asBoolean(record.hasMore) ?? false,
+    nextCursor: asString(record.nextCursor),
+  };
+}
+
+function parseMetadata(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return asRecord(parsed) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return asRecord(value) ?? undefined;
+}
+
+function normalizeTopic(rawTopic: unknown): Topic | null {
+  const record = asRecord(rawTopic);
+  if (!record) return null;
+
+  const id = asString(record.id);
+  if (!id) return null;
+
+  const status = asString(record.status) === 'inactive' ? 'inactive' : 'active';
+  const createdAt = asString(record.createdAt) ?? asString(record.created_at) ?? new Date().toISOString();
+  const updatedAt = asString(record.updatedAt) ?? asString(record.updated_at) ?? createdAt;
+  const name = asString(record.name) ?? `Topic ${id.slice(0, 8)}`;
+  const metadata = parseMetadata(record.metadata);
+
+  return {
+    id,
+    projectId: asString(record.projectId) ?? asString(record.project_id),
+    name,
+    description: asString(record.description),
+    status,
+    scopeType: asString(record.scopeType) ?? asString(record.scope_type) ?? 'project',
+    scopeId: asString(record.scopeId) ?? asString(record.scope_id),
+    transcriptCount: asNumber(record.transcriptCount) ?? asNumber(record.transcript_count),
+    manualTranscriptCount:
+      asNumber(record.manualTranscriptCount) ?? asNumber(record.manual_transcript_count),
+    autoTranscriptCount: asNumber(record.autoTranscriptCount) ?? asNumber(record.auto_transcript_count),
+    isActive: asBoolean(record.isActive) ?? asBoolean(record.is_active) ?? status === 'active',
+    createdAt,
+    updatedAt,
+    metadata,
+  };
+}
+
+function normalizeSession(rawSession: unknown): Session | null {
+  const record = asRecord(rawSession);
+  if (!record) return null;
+
+  const id = asString(record.id);
+  if (!id) return null;
+
+  const rawStatus = asString(record.status);
+  const status =
+    rawStatus === 'active' || rawStatus === 'completed' || rawStatus === 'discarded' || rawStatus === 'paused'
+      ? rawStatus
+      : 'completed';
+
+  return {
+    id,
+    projectId: asString(record.projectId) ?? asString(record.project_id),
+    name: asString(record.name),
+    purpose: asString(record.purpose),
+    agentId: asString(record.agentId) ?? asString(record.agent_id),
+    status,
+    startedAt: asString(record.startedAt) ?? asString(record.started_at) ?? new Date().toISOString(),
+    endedAt: asString(record.endedAt) ?? asString(record.ended_at),
+    metadata: parseMetadata(record.metadata),
+  };
+}
+
+function topicToLegacySession(topic: Topic): Session {
+  return {
+    id: topic.id,
+    projectId: topic.projectId,
+    name: topic.name,
+    purpose: topic.description,
+    status: topic.status === 'active' ? 'active' : 'completed',
+    startedAt: topic.createdAt,
+    endedAt: topic.status === 'active' ? undefined : topic.updatedAt,
+    metadata: {
+      source: 'topic_alias',
+      transcriptCount: topic.transcriptCount,
+      manualTranscriptCount: topic.manualTranscriptCount,
+      autoTranscriptCount: topic.autoTranscriptCount,
+      ...(topic.metadata ?? {}),
+    },
+  };
+}
+
 export const api = {
   guidelines: {
     listPage: (scopeType = 'global', scopeId?: string, cursor?: string) =>
@@ -210,12 +331,35 @@ export const api = {
   },
 
   sessions: {
-    listPage: (cursor?: string) =>
-      apiCall<SessionsData>('memory_session', {
+    listPage: async (cursor?: string): Promise<SessionsData> => {
+      const data = await apiCall<Record<string, unknown>>('memory_session', {
         action: 'list',
         limit: MAX_LIMIT,
         ...(cursor && { cursor }),
-      }),
+      });
+
+      const rawSessions = Array.isArray(data.sessions) ? data.sessions : [];
+      const sessions = rawSessions
+        .map((session) => normalizeSession(session))
+        .filter((session): session is Session => session !== null);
+
+      if (sessions.length > 0) {
+        return {
+          sessions,
+          meta: normalizeCursorMeta(data.meta, sessions.length),
+        };
+      }
+
+      const rawTopics = Array.isArray(data.topics) ? data.topics : [];
+      const topics = rawTopics
+        .map((topic) => normalizeTopic(topic))
+        .filter((topic): topic is Topic => topic !== null);
+
+      return {
+        sessions: topics.map(topicToLegacySession),
+        meta: normalizeCursorMeta(data.meta, topics.length),
+      };
+    },
 
     listAll: async (): Promise<Session[]> => {
       return fetchAllByCursor(async (cursor) => {
@@ -488,20 +632,121 @@ export const api = {
   },
 
   topics: {
-    list: async (projectId?: string): Promise<Topic[]> => {
-      const data = await apiCall<{ topics: Topic[] }>('memory_topic', {
+    list: async (options?: {
+      projectId?: string;
+      scopeType?: string;
+      scopeId?: string;
+      includeInactive?: boolean;
+      limit?: number;
+      offset?: number;
+    }): Promise<Topic[]> => {
+      const data = await apiCall<Record<string, unknown>>('memory_topic', {
         action: 'list',
-        ...(projectId && { projectId }),
+        ...(options?.projectId && { projectId: options.projectId }),
+        ...(options?.scopeType && { scopeType: options.scopeType }),
+        ...(options?.scopeId && { scopeId: options.scopeId }),
+        ...(options?.includeInactive !== undefined && { includeInactive: options.includeInactive }),
+        ...(options?.limit !== undefined && { limit: options.limit }),
+        ...(options?.offset !== undefined && { offset: options.offset }),
       });
-      return data.topics;
+
+      const topics = Array.isArray(data.topics) ? data.topics : [];
+      return topics
+        .map((topic) => normalizeTopic(topic))
+        .filter((topic): topic is Topic => topic !== null);
     },
 
     get: async (id: string): Promise<Topic> => {
-      const data = await apiCall<{ topic: Topic }>('memory_topic', {
+      const data = await apiCall<Record<string, unknown>>('memory_topic', {
         action: 'get',
         id,
       });
-      return data.topic;
+
+      const topic = normalizeTopic(data.topic);
+      if (!topic) {
+        throw new ApiError(`Invalid topic payload for id ${id}`, 500);
+      }
+      return topic;
+    },
+
+    create: async (input: {
+      name: string;
+      description?: string;
+      status?: 'active' | 'inactive';
+      scopeType?: string;
+      scopeId?: string;
+      projectId?: string;
+      metadata?: Record<string, unknown>;
+    }): Promise<Topic> => {
+      const data = await apiCall<Record<string, unknown>>('memory_topic', {
+        action: 'create',
+        ...input,
+      });
+      const topic = normalizeTopic(data.topic);
+      if (!topic) {
+        throw new ApiError('Invalid topic payload from create', 500);
+      }
+      return topic;
+    },
+
+    update: async (
+      id: string,
+      updates: {
+        name?: string;
+        description?: string;
+        status?: 'active' | 'inactive';
+        metadata?: Record<string, unknown>;
+      }
+    ): Promise<Topic> => {
+      const data = await apiCall<Record<string, unknown>>('memory_topic', {
+        action: 'update',
+        id,
+        ...updates,
+      });
+      const topic = normalizeTopic(data.topic);
+      if (!topic) {
+        throw new ApiError(`Invalid topic payload from update for id ${id}`, 500);
+      }
+      return topic;
+    },
+
+    deactivate: async (id: string): Promise<void> => {
+      await apiCall('memory_topic', {
+        action: 'deactivate',
+        id,
+      });
+    },
+
+    assignTranscript: async (transcriptId: string, topicId: string): Promise<void> => {
+      await apiCall('memory_topic', {
+        action: 'assign',
+        transcriptId,
+        topicId,
+      });
+    },
+
+    moveTranscript: async (
+      transcriptId: string,
+      targetTopicId: string,
+      sourceTopicId?: string
+    ): Promise<void> => {
+      await apiCall('memory_topic', {
+        action: 'move',
+        transcriptId,
+        targetTopicId,
+        ...(sourceTopicId && { sourceTopicId }),
+      });
+    },
+
+    merge: async (sourceTopicId: string, targetTopicId: string): Promise<Topic | null> => {
+      const data = await apiCall<Record<string, unknown>>('memory_topic', {
+        action: 'merge',
+        sourceTopicId,
+        targetTopicId,
+      });
+
+      if (!data.topic) return null;
+      return normalizeTopic(data.topic);
     },
   },
 };

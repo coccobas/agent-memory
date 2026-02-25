@@ -58,6 +58,12 @@ export function useKeyboardShortcuts() {
         action: () => navigate('/sessions'),
       },
       {
+        key: 'o',
+        label: 'g o',
+        description: 'Go to Topics',
+        action: () => navigate('/topics'),
+      },
+      {
         key: 'e',
         label: 'g e',
         description: 'Go to Episodes',

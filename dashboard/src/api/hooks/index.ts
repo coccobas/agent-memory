@@ -4,6 +4,16 @@ export { useTools } from './use-tools';
 export { useExperiences } from './use-experiences';
 export { useSessions } from './use-sessions';
 export {
+  useTopics,
+  useTopic,
+  useCreateTopic,
+  useUpdateTopic,
+  useDeleteTopic,
+  useAssignTranscriptToTopic,
+  useMoveTranscriptToTopic,
+  useMergeTopics,
+} from './use-topics';
+export {
   useEpisodes,
   useEpisodeEvents,
   useSessionTimeline,

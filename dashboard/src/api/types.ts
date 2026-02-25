@@ -149,6 +149,9 @@ export interface Topic {
   status: 'active' | 'inactive';
   scopeType: string;
   scopeId?: string;
+  transcriptCount?: number;
+  manualTranscriptCount?: number;
+  autoTranscriptCount?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

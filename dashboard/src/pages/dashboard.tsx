@@ -4,7 +4,7 @@ import {
   useKnowledge,
   useTools,
   useExperiences,
-  useSessions,
+  useTopics,
 } from "@/api/hooks";
 import { useUIStore } from "@/stores/ui.store";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import {
   Brain,
   Wrench,
   Sparkles,
-  Clock,
+  FolderKanban,
 } from "lucide-react";
 import {
   BarChart,
@@ -64,14 +64,14 @@ export function DashboardPage() {
   const knowledge = useKnowledge(scopeType, scopeId);
   const tools = useTools(scopeType, scopeId);
   const experiences = useExperiences(scopeType, scopeId);
-  const sessions = useSessions();
+  const topics = useTopics(scopeType, scopeId, true);
 
   const isLoading =
     guidelines.isLoading ||
     knowledge.isLoading ||
     tools.isLoading ||
     experiences.isLoading ||
-    sessions.isLoading;
+    topics.isLoading;
 
   const stats = [
     {
@@ -103,11 +103,11 @@ export function DashboardPage() {
       isLoading: experiences.isLoading,
     },
     {
-      title: "Sessions",
-      value: sessions.data?.length,
-      icon: <Clock className="h-4 w-4" />,
+      title: "Topics",
+      value: topics.data?.length,
+      icon: <FolderKanban className="h-4 w-4" />,
       color: "text-cyan-400",
-      isLoading: sessions.isLoading,
+      isLoading: topics.isLoading,
     },
   ];
 
@@ -124,7 +124,7 @@ export function DashboardPage() {
       count: experiences.data?.length ?? 0,
       color: "#fb923c", // orange-400
     },
-    { name: "Sessions", count: sessions.data?.length ?? 0, color: "#22d3ee" }, // cyan-400
+    { name: "Topics", count: topics.data?.length ?? 0, color: "#22d3ee" }, // cyan-400
   ];
 
   return (

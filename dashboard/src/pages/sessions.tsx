@@ -374,8 +374,8 @@ export function SessionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Sessions</h1>
-        <p className="text-muted-foreground">Working sessions and their episodes</p>
+        <h1 className="text-2xl font-bold">Sessions (Legacy)</h1>
+        <p className="text-muted-foreground">Legacy session timeline and related episodes</p>
       </div>
 
       {data && data.length > 0 ? (
