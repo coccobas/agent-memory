@@ -14,7 +14,6 @@ import { createLocalRateLimiterAdapter } from './adapters/local-rate-limiter.ada
 import { LocalEventAdapter } from './adapters/local-event.adapter.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { LRUCache } from '../utils/lru-cache.js';
-import type { MemoryQueryResult } from '../services/query/pipeline.js';
 import { MemoryCoordinator } from './memory-coordinator.js';
 import { createEventBus, type EntryChangedEvent } from '../utils/events.js';
 import type { EmbeddingProvider } from './context.js';
@@ -113,7 +112,7 @@ export interface RateLimiters {
  * Query cache interface for the pipeline
  */
 export interface QueryCache {
-  cache: LRUCache<MemoryQueryResult>;
+  cache: LRUCache<unknown>;
   unsubscribe: (() => void) | null;
 }
 
@@ -185,7 +184,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
   const statsCache = createStatsCache();
 
   // Create query cache (owned by Runtime, not module-level)
-  const queryCacheInstance = new LRUCache<MemoryQueryResult>({
+  const queryCacheInstance = new LRUCache<unknown>({
     maxSize: config.queryCache.maxSize,
     maxMemoryMB: config.queryCache.maxMemoryMB,
     ttlMs: config.queryCache.ttlMs,

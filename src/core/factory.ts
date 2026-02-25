@@ -1,59 +1,36 @@
 /**
- * Application Context Factory
+ * Application Context Factory — V2 Minimal
  *
- * Main factory function for creating AppContext.
- * Sub-factories are located in ./factory/ for better organization.
+ * Creates a minimal AppContext with database connection only.
+ * V2 handlers create their own runtime from context.sqlite.
  */
 
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { AppContext } from './context.js';
 import type { Config } from '../config/index.js';
-import type { Runtime } from './runtime.js';
-import type { DatabaseDeps, AppDb } from './types.js';
 import { createComponentLogger } from '../utils/logger.js';
 import { createDatabaseConnection } from '../db/factory.js';
-
-// Sub-factory imports
-import { createRepositories } from './factory/repositories.js';
-import { wireContext } from './factory/context-wiring.js';
-import {
-  createAdaptersWithConfig,
-  connectRedisAdapters,
-  closeRedisAdapters,
-} from './adapters/index.js';
-
-/**
- * Options for createAppContext
- */
-export interface CreateAppContextOptions {
-  /**
-   * Skip ExtractionService initialization.
-   * Used by hooks that don't need extraction to avoid SSRF validation errors
-   * when using localhost LLM endpoints in production mode.
-   */
-  skipExtractionService?: boolean;
-}
 
 /**
  * Create a new Application Context
  *
- * This factory initializes all core dependencies using specialized sub-factories.
- * Supports both SQLite and PostgreSQL backends based on config.dbType.
+ * Initializes the database (runs migrations) and returns a minimal context.
+ * The runtime parameter is accepted for backwards compatibility but ignored —
+ * v2 handlers create their own runtime from context.sqlite.
  *
- * @param config - The application configuration
- * @param runtime - The process-scoped runtime instance (required)
- * @param options - Optional context creation options
- * @returns Fully initialized AppContext
+ * @param config - Application configuration
+ * @param _runtime - Ignored (kept for backwards compatibility with CLI entry point)
+ * @param _options - Ignored (kept for backwards compatibility)
  */
 export async function createAppContext(
   config: Config,
-  runtime: Runtime,
-  options?: CreateAppContextOptions
+  _runtime?: unknown,
+  _options?: unknown
 ): Promise<AppContext> {
   const logger = createComponentLogger('app');
 
-  // For SQLite mode, ensure data directory exists
+  // Ensure data directory exists for SQLite
   if (config.dbType === 'sqlite') {
     const dbPath = config.database.path;
     const dir = dirname(dbPath);
@@ -63,104 +40,28 @@ export async function createAppContext(
     }
   }
 
-  // Initialize Database - returns discriminated union based on dbType
+  // Initialize database connection (includes migrations)
   const connection = await createDatabaseConnection(config);
 
-  // Resolve backend-specific resources
-  let db: AppDb;
-  let sqlite: DatabaseDeps['sqlite'];
-
-  if (connection.type === 'postgresql') {
-    logger.info({ dbType: 'postgresql' }, 'Using PostgreSQL backend');
-    // Cast through unknown since PG and SQLite Drizzle types are structurally different
-    db = connection.adapter.getDb() as unknown as AppDb;
-    sqlite = undefined;
-  } else {
-    logger.info({ dbType: 'sqlite' }, 'Using SQLite backend');
-    db = connection.db;
-    sqlite = connection.sqlite;
+  if (connection.type !== 'sqlite') {
+    throw new Error('v2 requires SQLite backend');
   }
 
-  // Create database dependencies and repositories
-  const dbDeps: DatabaseDeps = { db, sqlite };
-  const repos = createRepositories(dbDeps);
+  logger.info({ dbType: 'sqlite' }, 'AppContext created (v2 minimal)');
 
-  // Create adapters (backend-specific, needs repos.fileLocks)
-  // Uses createAdaptersWithConfig to support Redis when enabled
-  // Note: In the SQLite branch, sqlite is guaranteed to be defined by the connection.type check above
-  const adapterDeps =
-    connection.type === 'postgresql'
-      ? {
-          dbType: 'postgresql' as const,
-          config: config.postgresql,
-          fileLockRepo: repos.fileLocks,
-        }
-      : {
-          dbType: 'sqlite' as const,
-          db,
-          sqlite: sqlite ?? connection.sqlite,
-          fileLockRepo: repos.fileLocks,
-        };
-
-  const adapters = createAdaptersWithConfig(adapterDeps, config);
-
-  // Connect Redis adapters if they were created
-  if ('redis' in adapters && adapters.redis) {
-    logger.info('Connecting Redis adapters for distributed deployment');
-    await connectRedisAdapters(adapters.redis);
-  }
-
-  // Wire all shared components and assemble AppContext
-  return await wireContext({
+  return {
     config,
-    runtime,
-    db,
-    sqlite,
-    repos,
-    adapters,
+    db: connection.db,
+    sqlite: connection.sqlite,
     logger,
-    dbType: connection.type,
-    pgPool: connection.type === 'postgresql' ? connection.pool : undefined,
-    skipExtractionService: options?.skipExtractionService,
-  });
+  };
 }
 
 /**
- * Shutdown an AppContext, releasing adapter resources.
- *
- * This closes Redis connections if they were created during context initialization.
- * Call this during graceful shutdown alongside shutdownRuntime().
- *
- * @param context - The AppContext to shut down
- * @param options - Shutdown options
+ * Shutdown an AppContext.
+ * V2 minimal context has no services to drain — this is a no-op.
+ * The sqlite connection is closed separately by the server.
  */
-export async function shutdownAppContext(
-  context: AppContext,
-  options?: { drainFeedbackQueue?: boolean }
-): Promise<void> {
-  const logger = createComponentLogger('app');
-
-  // Drain or stop feedback queue if it exists
-  if (context.services?.feedbackQueue) {
-    if (options?.drainFeedbackQueue) {
-      logger.info('Draining feedback queue before shutdown');
-      await context.services.feedbackQueue.drain();
-    } else {
-      logger.info('Stopping feedback queue');
-      await context.services.feedbackQueue.stop();
-    }
-  }
-
-  // Close Redis adapters if they exist
-  if (context.adapters && 'redis' in context.adapters && context.adapters.redis) {
-    logger.info('Closing Redis adapters');
-    await closeRedisAdapters(context.adapters.redis);
-  }
-
-  // Close vector service if it exists
-  if (context.services?.vector) {
-    context.services.vector.close();
-  }
-
-  logger.info('AppContext shutdown complete');
+export async function shutdownAppContext(_context: AppContext): Promise<void> {
+  // No-op for v2 minimal context
 }

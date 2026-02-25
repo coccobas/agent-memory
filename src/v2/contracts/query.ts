@@ -2,7 +2,7 @@
  * Canonical V2 query contracts.
  */
 
-import type { EntrySnapshot, EntryType, ScopeRef } from './entry.js';
+import type { EntrySnapshot, EntrySource, EntryType, ScopeRef } from './entry.js';
 import type { RelationType } from './relation.js';
 
 export type RetrievalStrategy = 'fts' | 'semantic' | 'hybrid';
@@ -13,6 +13,7 @@ export interface QueryRequest {
   query?: string;
   scope: ScopeRef;
   types?: EntryType[];
+  sources?: EntrySource[];
   limit: number;
   offset?: number;
   tags?: {

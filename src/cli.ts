@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CLI entry point for agent-memory (MCP/REST)
+// CLI entry point for agent-memory (MCP server)
 // This file sets environment variables before any modules are loaded
 
 // CRITICAL: Suppress dotenv output BEFORE loading anything
@@ -24,78 +24,82 @@ async function importAndRun(modulePath: string, runtime: unknown): Promise<void>
 async function main() {
   const argv = process.argv.slice(2);
 
-  // ---------------------------------------------------------------------------
-  // Command mode (non-server)
-  // ---------------------------------------------------------------------------
+  // Check for --help/--version
   const command = (argv[0] || '').toLowerCase();
-  if (command === 'verify-response') {
-    const { runVerifyResponseCommand } = await import('./commands/verify-response.js');
-    await runVerifyResponseCommand(argv.slice(1));
+  if (command === '--help' || command === '-h') {
+    console.log('agent-memory — structured memory backend for AI agents');
+    console.log('');
+    console.log('Usage: agent-memory [--mode mcp|rest|both]');
+    console.log('');
+    console.log('Options:');
+    console.log('  --mode <mode>  Server mode: mcp (default), rest, both');
+    console.log('  --help, -h     Show this help');
+    console.log('  --version, -V  Show version');
     return;
   }
 
+  if (command === '--version' || command === '-V') {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const path = await import('node:path');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')) as {
+      version: string;
+    };
+    console.log(pkg.version);
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hook command (lightweight, no server startup)
+  // ---------------------------------------------------------------------------
   if (command === 'hook') {
-    const { runHookCommand } = await import('./commands/hook.js');
-    await runHookCommand(argv.slice(1));
+    const hookEvent = argv[1] ?? '';
+    // Read stdin for hook payload
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) {
+      chunks.push(chunk as Buffer);
+    }
+    const stdinJson = Buffer.concat(chunks).toString('utf-8');
+
+    try {
+      const { loadEnv: loadEnvHook } = await import('./config/env.js');
+      const pathHook = await import('node:path');
+      const { fileURLToPath: fileURLToPathHook } = await import('node:url');
+      const __filenameHook = fileURLToPathHook(import.meta.url);
+      const __dirnameHook = pathHook.dirname(__filenameHook);
+      loadEnvHook(pathHook.resolve(__dirnameHook, '..'));
+
+      const { config: hookConfig } = await import('./config/index.js');
+      const { createAppContext } = await import('./core/factory.js');
+      const context = await createAppContext(hookConfig);
+
+      if (!context.sqlite) {
+        process.stderr.write('[agent-memory hook] No SQLite backend available\n');
+        return;
+      }
+
+      const { runHookCommand } = await import('./v2/hooks/cli.js');
+      const { createSqliteMemoryV2Runtime } = await import('./v2/adapters/sqlite/factory.js');
+
+      const v2Runtime = createSqliteMemoryV2Runtime({ sqlite: context.sqlite });
+      await runHookCommand(hookEvent, stdinJson, {
+        sqlite: context.sqlite,
+        runtime: v2Runtime,
+      });
+    } catch (error) {
+      // Hooks must never crash Claude Code
+      process.stderr.write(
+        `[agent-memory hook] ${error instanceof Error ? error.message : String(error)}\n`
+      );
+    }
     return;
   }
 
-  if (command === 'review') {
-    const { runReviewCommand } = await import('./commands/review.js');
-    await runReviewCommand(argv.slice(1));
-    return;
-  }
-
-  if (command === 'reindex') {
-    const { runReindexCommand } = await import('./commands/reindex.js');
-    await runReindexCommand(argv.slice(1));
-    return;
-  }
-
-  // Check for Commander.js CLI commands (new unified CLI)
-  // These are all subcommand-style commands like: knowledge, guideline, tool, query, etc.
-  const cliCommands = [
-    'knowledge',
-    'guideline',
-    'tool',
-    'query',
-    'org',
-    'project',
-    'session',
-    'tag',
-    'relation',
-    'permission',
-    'file-lock',
-    'init',
-    'backup',
-    'export',
-    'import',
-    'health',
-    'conflict',
-    'analytics',
-    'consolidate',
-    'verify',
-    'conversation',
-    'observe',
-    'task',
-    'voting',
-    'experience',
-    'librarian',
-    'key',
-    // Note: 'review' and 'hook' are handled by existing legacy commands above
-  ];
-
-  if (
-    cliCommands.includes(command) ||
-    command === '--help' ||
-    command === '-h' ||
-    command === '--version' ||
-    command === '-V'
-  ) {
-    const { runCli } = await import('./cli/index.js');
-    await runCli(argv);
-    return;
-  }
+  // ---------------------------------------------------------------------------
+  // Server mode
+  // ---------------------------------------------------------------------------
 
   // Load environment variables explicitly
   const { loadEnv } = await import('./config/env.js');
@@ -113,29 +117,16 @@ async function main() {
 
   const { createComponentLogger } = await import('./utils/logger.js');
   const { ensureRuntime, shutdownOwnedRuntime } = await import('./core/runtime-owner.js');
-  const { startBackupScheduler, stopBackupScheduler } =
-    await import('./services/backup-scheduler.service.js');
 
   const logger = createComponentLogger('server');
   const mode = parseServerMode(argv, process.env.AGENT_MEMORY_MODE);
   logger.info({ mode }, 'Entry point reached');
 
   // Create and register the process-scoped Runtime
-  // This is shared across MCP and REST servers in "both" mode
   const { runtime, ownsRuntime } = ensureRuntime(config);
-
-  // Start backup scheduler if configured
-  if (config.backup.schedule) {
-    startBackupScheduler({
-      schedule: config.backup.schedule,
-      retentionCount: config.backup.retentionCount,
-      enabled: config.backup.enabled,
-    });
-  }
 
   // Cleanup on shutdown
   const cleanup = async () => {
-    stopBackupScheduler();
     await shutdownOwnedRuntime(ownsRuntime, runtime);
     process.exit(0);
   };
@@ -161,21 +152,24 @@ async function main() {
 
   try {
     const mcpModulePath = './mcp/server.js';
-    const restModulePath = './restapi/server.js';
 
     if (mode === 'mcp') {
       await importAndRun(mcpModulePath, runtime);
       return;
     }
 
+    const restModulePath = './restapi/server.js';
+
     if (mode === 'rest') {
       await importAndRun(restModulePath, runtime);
       return;
     }
 
-    // both
-    await importAndRun(restModulePath, runtime);
-    await importAndRun(mcpModulePath, runtime);
+    // mode === 'both'
+    await Promise.all([
+      importAndRun(mcpModulePath, runtime),
+      importAndRun(restModulePath, runtime),
+    ]);
   } catch (error) {
     logger.fatal(
       { error: error instanceof Error ? error.message : String(error) },

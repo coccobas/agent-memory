@@ -268,6 +268,7 @@ export interface Config {
     host: string;
     port: number;
     bodyLimit: number;
+    dashboardPath: string;
   };
   security: {
     restAuthDisabled: boolean;

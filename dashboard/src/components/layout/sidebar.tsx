@@ -6,13 +6,10 @@ import {
   Wrench,
   Lightbulb,
   Clock,
-  Network,
-  Library,
-  BarChart3,
+  MessageSquare,
+  Activity,
   ChevronLeft,
   ChevronRight,
-  CheckSquare,
-  FolderKanban,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -45,19 +42,16 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: 'Tracking',
+    title: 'Activity',
     items: [
-      { path: '/tasks', label: 'Tasks', icon: CheckSquare },
-      { path: '/topics', label: 'Topics', icon: FolderKanban },
       { path: '/sessions', label: 'Sessions', icon: Clock },
+      { path: '/transcripts', label: 'Transcripts', icon: MessageSquare },
     ],
   },
   {
-    title: 'Analysis',
+    title: 'Admin',
     items: [
-      { path: '/graph', label: 'Graph', icon: Network },
-      { path: '/librarian', label: 'Librarian', icon: Library },
-      { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+      { path: '/projector', label: 'Indexing', icon: Activity },
     ],
   },
 ];

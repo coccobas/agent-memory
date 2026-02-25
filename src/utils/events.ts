@@ -9,7 +9,6 @@
  */
 
 import type { ScopeType } from '../db/schema.js';
-import type { IEventAdapterExtended } from '../core/interfaces/event-adapter.js';
 import { createComponentLogger } from './logger.js';
 
 const logger = createComponentLogger('events');
@@ -43,7 +42,7 @@ export type EntryChangedHandler = (event: EntryChangedEvent) => void;
  *
  * Usage: Create via factory, inject via DI, do not use singleton.
  */
-export class EventBus implements IEventAdapterExtended {
+export class EventBus {
   private handlers: Set<EntryChangedHandler> = new Set();
   // Bug #215 fix: Limit max handlers to prevent unbounded memory growth
   private static readonly MAX_HANDLERS = 1000;

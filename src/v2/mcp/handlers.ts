@@ -5,14 +5,21 @@ import type {
   CreateScopeRequest,
   DeleteEntryRequest,
   DeleteRelationRequest,
+  EntrySnapshot,
+  EntrySource,
   EntryType,
   QueryRequest,
   RelationType,
+  ScopeRef,
   ScopeType,
   UpsertEntryRequest,
   UpsertRelationRequest,
 } from '../contracts/index.js';
 import { createSqliteMemoryV2Runtime, type SqliteMemoryV2Runtime } from '../bootstrap.js';
+// eslint-disable-next-line no-restricted-imports
+import { getScopeVisibilityKeys } from '../adapters/sqlite/shared.js';
+import { formatHierarchicalContext } from '../read/hierarchical-formatter.js';
+import { embedPending, type EmbeddingService } from '../indexing/embedding-pipeline.js';
 
 const DEFAULT_PROJECTOR_NAME = 'v2-core';
 const ROOT_SCOPE_TOKEN = '__root__';
@@ -26,7 +33,7 @@ function requireSqlite(context: AppContext): Database.Database {
   return context.sqlite;
 }
 
-function getRuntime(context: AppContext): SqliteMemoryV2Runtime {
+export function getRuntime(context: AppContext): SqliteMemoryV2Runtime {
   const sqlite = requireSqlite(context);
   const cached = runtimeBySqlite.get(sqlite);
   if (cached) {
@@ -83,7 +90,13 @@ function asScope(value: unknown): { type: ScopeType; id: string | null } {
   const record = asRecord(value, 'scope');
   const type = asString(record.type, 'scope.type');
 
-  if (type !== 'global' && type !== 'org' && type !== 'project' && type !== 'session') {
+  if (
+    type !== 'global' &&
+    type !== 'org' &&
+    type !== 'project' &&
+    type !== 'session' &&
+    type !== 'topic'
+  ) {
     throw new Error('invalid_scope.type');
   }
 
@@ -382,6 +395,23 @@ function parseQueryRequest(params: Record<string, unknown>): QueryRequest {
     });
   }
 
+  if (Array.isArray(params.sources)) {
+    const VALID_SOURCES: readonly string[] = [
+      'remember',
+      'observe_extract',
+      'observe_commit',
+      'hook_capture',
+      'import',
+    ];
+    request.sources = params.sources.map((src) => {
+      const source = asString(src, 'sources');
+      if (!VALID_SOURCES.includes(source)) {
+        throw new Error('invalid_sources');
+      }
+      return source as EntrySource;
+    });
+  }
+
   if (params.tags) {
     const tags = asRecord(params.tags, 'tags');
     request.tags = {
@@ -508,12 +538,67 @@ export async function handleV2MemoryQuery(
   const runtime = getRuntime(context);
   const action = asString(params.action, 'action');
 
-  if (action !== 'search') {
-    throw new Error(`invalid_action:${action}`);
+  if (action === 'search') {
+    const request = parseQueryRequest(params);
+    return runtime.memory.read.execute(request);
   }
 
-  const request = parseQueryRequest(params);
-  return runtime.memory.read.execute(request);
+  if (action === 'context') {
+    const scope = asScope(params.scope);
+    const hierarchical = params.hierarchical !== false; // default true
+    const limit = asOptionalNumber(params.limit) ?? 200;
+
+    // Load all entries visible from this scope
+    const request: QueryRequest = {
+      scope,
+      limit,
+      offset: 0,
+    };
+
+    const result = await runtime.memory.read.execute(request);
+    const entries: EntrySnapshot[] = result.results.map((r) => r.entry);
+
+    if (!hierarchical) {
+      // Return full entries (verbose mode)
+      return { entries, totalCount: result.totalCount };
+    }
+
+    // Get total counts by type for accurate summary
+    const sqlite = requireSqlite(context);
+    const totalCounts = countEntriesByType(sqlite, scope);
+
+    return formatHierarchicalContext(entries, scope, totalCounts);
+  }
+
+  throw new Error(`invalid_action:${action}`);
+}
+
+function countEntriesByType(
+  sqlite: Database.Database,
+  scope: ScopeRef
+): Partial<Record<EntryType, number>> {
+  const visibleKeys = getScopeVisibilityKeys(sqlite, scope);
+  const placeholders = Array.from(visibleKeys)
+    .map(() => '?')
+    .join(', ');
+
+  const rows = sqlite
+    .prepare(
+      `
+      SELECT entry_type, COUNT(*) AS cnt
+      FROM v2_entries
+      WHERE scope_id IN (${placeholders})
+        AND is_active = 1
+      GROUP BY entry_type
+    `
+    )
+    .all(...Array.from(visibleKeys)) as Array<{ entry_type: EntryType; cnt: number }>;
+
+  const counts: Partial<Record<EntryType, number>> = {};
+  for (const row of rows) {
+    counts[row.entry_type] = row.cnt;
+  }
+  return counts;
 }
 
 function projectorStatus(sqlite: Database.Database): {
@@ -629,6 +714,32 @@ export async function handleV2MemoryProjector(
         fromSeq,
         toSeq,
       },
+      ...result,
+      ...projectorStatus(sqlite),
+    };
+  }
+
+  if (action === 'embed_pending') {
+    const limit = asOptionalNumber(params.limit) ?? 50;
+    const svc = context.services?.embedding;
+
+    if (!svc) {
+      return {
+        action,
+        error: 'no_embedding_service',
+        message: 'No embedding service configured on context.services.embedding',
+      };
+    }
+
+    const embeddingService: EmbeddingService = {
+      isAvailable: () => svc.isAvailable(),
+      embed: (text: string) => svc.embed(text),
+      getEmbeddingDimension: () => svc.getEmbeddingDimension(),
+    };
+
+    const result = await embedPending(sqlite, embeddingService, limit);
+    return {
+      action,
       ...result,
       ...projectorStatus(sqlite),
     };

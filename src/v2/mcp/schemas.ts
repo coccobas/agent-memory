@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const ScopeTypeSchema = z.enum(['global', 'org', 'project', 'session']);
+const ScopeTypeSchema = z.enum(['global', 'org', 'project', 'session', 'topic']);
 const EntryTypeSchema = z.enum(['guideline', 'knowledge', 'tool', 'experience']);
 const EntrySourceSchema = z.enum([
   'remember',

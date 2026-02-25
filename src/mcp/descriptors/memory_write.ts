@@ -5,7 +5,7 @@ export const memoryWriteDescriptor: ToolDescriptor = {
   name: 'memory_write',
   visibility: 'core',
   description:
-    'Structured memory writes for V2 core loop. Actions: upsert_entry, delete_entry, upsert_relation, delete_relation, tag_entry, untag_entry',
+    'Structured memory writes for V2 core loop. Actions: upsert_entry, delete_entry, upsert_relation, delete_relation, create_scope, archive_scope, tag_entry, untag_entry',
   commonParams: {
     actorId: { type: 'string' },
     correlationId: { type: 'string' },
@@ -54,6 +54,13 @@ export const memoryWriteDescriptor: ToolDescriptor = {
       properties: {},
     },
     tag: { type: 'string' },
+    scopeType: {
+      type: 'string',
+      enum: ['global', 'org', 'project', 'session', 'topic'],
+    },
+    scopeId: { type: 'string' },
+    parentScopeId: { type: 'string' },
+    label: { type: 'string' },
     data: {
       type: 'object',
       properties: {
@@ -81,7 +88,7 @@ export const memoryWriteDescriptor: ToolDescriptor = {
         scope: {
           type: 'object',
           properties: {
-            type: { type: 'string', enum: ['global', 'org', 'project', 'session'] },
+            type: { type: 'string', enum: ['global', 'org', 'project', 'session', 'topic'] },
             id: { type: 'string' },
           },
           required: ['type'],
@@ -106,6 +113,14 @@ export const memoryWriteDescriptor: ToolDescriptor = {
     delete_relation: {
       contextHandler: (context, params) =>
         handleV2MemoryWrite(context, { action: 'delete_relation', ...params }),
+    },
+    create_scope: {
+      contextHandler: (context, params) =>
+        handleV2MemoryWrite(context, { action: 'create_scope', ...params }),
+    },
+    archive_scope: {
+      contextHandler: (context, params) =>
+        handleV2MemoryWrite(context, { action: 'archive_scope', ...params }),
     },
     tag_entry: {
       contextHandler: (context, params) =>

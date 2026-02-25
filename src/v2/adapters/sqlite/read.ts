@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import type {
   CandidateHit,
   EntrySnapshot,
+  EntrySource,
   EntryType,
   QueryRequest,
   RetrievalStrategy,
@@ -75,6 +76,23 @@ function scopeFilterSql(scopeIds: readonly string[]): { clause: string; params: 
   };
 }
 
+function sourceFilterSql(sources: readonly EntrySource[] | undefined): {
+  clause: string;
+  params: unknown[];
+} {
+  if (!sources || sources.length === 0) {
+    return {
+      clause: '',
+      params: [],
+    };
+  }
+
+  return {
+    clause: ` AND e.source IN (${buildInClause(sources)})`,
+    params: [...sources],
+  };
+}
+
 function activeFilterSql(includeInactive: boolean | undefined): string {
   return includeInactive ? '' : ' AND e.is_active = 1';
 }
@@ -104,6 +122,7 @@ export class SqliteFtsCandidateSource implements CandidateSource {
     const scopeIds = [...getScopeVisibilityKeys(this.sqlite, request.scope)];
     const scopeFilter = scopeFilterSql(scopeIds);
     const typeFilter = entryTypeFilterSql(request.types);
+    const srcFilter = sourceFilterSql(request.sources);
 
     const sql = `
       SELECT
@@ -116,11 +135,18 @@ export class SqliteFtsCandidateSource implements CandidateSource {
       ${activeFilterSql(request.includeInactive)}
       ${scopeFilter.clause}
       ${typeFilter.clause}
+      ${srcFilter.clause}
       ORDER BY rank ASC
       LIMIT ?
     `;
 
-    const params = [query, ...scopeFilter.params, ...typeFilter.params, asLimit(request)];
+    const params = [
+      query,
+      ...scopeFilter.params,
+      ...typeFilter.params,
+      ...srcFilter.params,
+      asLimit(request),
+    ];
 
     try {
       const rows = this.sqlite.prepare(sql).all(...params) as Array<{
@@ -172,6 +198,7 @@ export class SqliteSemanticCandidateSource implements CandidateSource {
     const scopeIds = [...getScopeVisibilityKeys(this.sqlite, request.scope)];
     const scopeFilter = scopeFilterSql(scopeIds);
     const typeFilter = entryTypeFilterSql(request.types);
+    const srcFilter = sourceFilterSql(request.sources);
 
     const sql = `
       SELECT
@@ -185,9 +212,10 @@ export class SqliteSemanticCandidateSource implements CandidateSource {
       ${activeFilterSql(request.includeInactive)}
       ${scopeFilter.clause}
       ${typeFilter.clause}
+      ${srcFilter.clause}
     `;
 
-    const params = [...scopeFilter.params, ...typeFilter.params];
+    const params = [...scopeFilter.params, ...typeFilter.params, ...srcFilter.params];
     const rows = this.sqlite.prepare(sql).all(...params) as Array<{
       entry_id: string;
       entry_type: EntryType;
@@ -228,6 +256,7 @@ export class SqliteSemanticCandidateSource implements CandidateSource {
     const scopeIds = [...getScopeVisibilityKeys(this.sqlite, request.scope)];
     const scopeFilter = scopeFilterSql(scopeIds);
     const typeFilter = entryTypeFilterSql(request.types);
+    const srcFilter = sourceFilterSql(request.sources);
 
     const sql = `
       SELECT
@@ -243,6 +272,7 @@ export class SqliteSemanticCandidateSource implements CandidateSource {
       ${activeFilterSql(request.includeInactive)}
       ${scopeFilter.clause}
       ${typeFilter.clause}
+      ${srcFilter.clause}
       ORDER BY e.updated_at DESC
       LIMIT ?
     `;
@@ -250,6 +280,7 @@ export class SqliteSemanticCandidateSource implements CandidateSource {
     const params = [
       ...scopeFilter.params,
       ...typeFilter.params,
+      ...srcFilter.params,
       Math.max(50, asLimit(request) * 3),
     ];
     const rows = this.sqlite.prepare(sql).all(...params) as Array<{
@@ -353,6 +384,7 @@ export class SqliteRelationCandidateSource implements CandidateSource {
     const scopeIds = [...getScopeVisibilityKeys(this.sqlite, request.scope)];
     const scopeFilter = scopeFilterSql(scopeIds);
     const typeFilter = entryTypeFilterSql(request.types);
+    const srcFilter = sourceFilterSql(request.sources);
 
     const sql = `
       SELECT id AS entry_id, entry_type AS entry_type
@@ -361,11 +393,17 @@ export class SqliteRelationCandidateSource implements CandidateSource {
       ${activeFilterSql(request.includeInactive)}
       ${scopeFilter.clause}
       ${typeFilter.clause}
+      ${srcFilter.clause}
     `;
 
     const rows = this.sqlite
       .prepare(sql)
-      .all(...candidateIds, ...scopeFilter.params, ...typeFilter.params) as Array<{
+      .all(
+        ...candidateIds,
+        ...scopeFilter.params,
+        ...typeFilter.params,
+        ...srcFilter.params
+      ) as Array<{
       entry_id: string;
       entry_type: EntryType;
     }>;
@@ -398,6 +436,7 @@ export class SqlitePrimaryCandidateSource implements CandidateSource {
     const scopeIds = [...getScopeVisibilityKeys(this.sqlite, request.scope)];
     const scopeFilter = scopeFilterSql(scopeIds);
     const typeFilter = entryTypeFilterSql(request.types);
+    const srcFilter = sourceFilterSql(request.sources);
 
     const sql = `
       SELECT
@@ -414,13 +453,19 @@ export class SqlitePrimaryCandidateSource implements CandidateSource {
       ${activeFilterSql(request.includeInactive)}
       ${scopeFilter.clause}
       ${typeFilter.clause}
+      ${srcFilter.clause}
       ORDER BY e.updated_at DESC
       LIMIT ?
     `;
 
     const rows = this.sqlite
       .prepare(sql)
-      .all(...scopeFilter.params, ...typeFilter.params, Math.max(25, asLimit(request))) as Array<{
+      .all(
+        ...scopeFilter.params,
+        ...typeFilter.params,
+        ...srcFilter.params,
+        Math.max(25, asLimit(request))
+      ) as Array<{
       entry_id: string;
       entry_type: EntryType;
       title: string;

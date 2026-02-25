@@ -95,91 +95,12 @@ export interface Session {
   metadata?: Record<string, unknown>;
 }
 
-// Episode
-export interface Episode {
-  id: string;
-  sessionId?: string;
-  topicId?: string;
-  name: string;
-  description?: string;
-  status: 'planned' | 'active' | 'completed' | 'failed' | 'cancelled';
-  outcome?: string;
-  outcomeType?: 'success' | 'partial' | 'failure' | 'abandoned';
-  startedAt?: string;
-  endedAt?: string;
-  durationMs?: number;
-  triggerType?: string;
-  createdAt: string;
-  isActive: boolean;
-}
-
-// Episode Event
-export interface EpisodeEvent {
-  id: string;
-  episodeId: string;
-  eventType: 'started' | 'checkpoint' | 'decision' | 'error' | 'completed';
-  name: string;
-  description?: string;
-  occurredAt: string;
-  sequenceNum: number;
-  entryType?: string;
-  entryId?: string;
-  data?: Record<string, unknown>;
-}
-
-// Timeline Entry
-export interface TimelineEntry {
-  timestamp: string;
-  type: 'episode_start' | 'episode_end' | 'event';
-  name: string;
-  description?: string;
-  episodeId: string;
-  eventId?: string;
-  entryType?: string;
-  entryId?: string;
-  data?: Record<string, unknown>;
-}
-
-// Topic
-export interface Topic {
-  id: string;
-  projectId?: string;
-  name: string;
-  description?: string;
-  status: 'active' | 'inactive';
-  scopeType: string;
-  scopeId?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  metadata?: Record<string, unknown>;
-}
-
 // Project
 export interface Project {
   id: string;
   name: string;
   description?: string;
   rootPath?: string;
-  createdAt: string;
-}
-
-// Graph entities (no version pattern)
-export interface GraphNode {
-  id: string;
-  name: string;
-  nodeTypeName: string;
-  properties?: Record<string, unknown>;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface GraphEdge {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  edgeTypeName: string;
-  weight?: number;
   createdAt: string;
 }
 
@@ -315,198 +236,9 @@ export interface ProjectsData {
   meta: { returnedCount: number };
 }
 
-export interface NodesData {
-  nodes: GraphNode[];
-  meta: OffsetPaginationMeta;
-}
-
-export interface EdgesData {
-  edges: GraphEdge[];
-  meta: OffsetPaginationMeta;
-}
-
-export interface EpisodesData {
-  episodes: Episode[];
-  count: number;
-}
-
-export interface EpisodeEventsData {
-  events: EpisodeEvent[];
-  count: number;
-}
-
-export interface TimelineData {
-  timeline: TimelineEntry[];
-  count: number;
-}
-
-export interface ConversationMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  toolsUsed?: string[] | null;
-}
-
-export interface EpisodeMessagesData {
-  episodeId: string;
-  messages: ConversationMessage[];
-  count: number;
-}
-
 // =============================================================
-// LIBRARIAN TYPES
+// DASHBOARD ANALYTICS
 // =============================================================
-
-export interface LibrarianTaskDetail {
-  name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
-  result?: Record<string, unknown>;
-  error?: string;
-  durationMs?: number;
-}
-
-export interface LibrarianJob {
-  id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  progress?: string;
-  currentTask?: string;
-  completedTasks?: number;
-  totalTasks?: number;
-  scopeType?: string;
-  scopeId?: string;
-  initiatedBy?: string;
-  createdAt?: string;
-  startedAt?: string;
-  completedAt?: string;
-  tasks: LibrarianTaskDetail[] | string[];
-  results?: Record<string, unknown>;
-  error?: string;
-  durationMs?: number;
-}
-
-export interface LibrarianRecommendation {
-  id: string;
-  title: string;
-  type: 'strategy' | 'skill';
-  status: 'pending' | 'approved' | 'rejected' | 'skipped';
-  confidence: number;
-  patternCount: number;
-  createdAt: string;
-  expiresAt?: string;
-  pattern?: string;
-  sourceExperiences?: string[];
-}
-
-export interface LibrarianServiceStatus {
-  enabled: boolean;
-  pendingRecommendations: number;
-  config: {
-    schedule: string;
-    triggerOnSessionEnd: boolean;
-  };
-}
-
-export interface LibrarianSchedulerStatus {
-  running: boolean;
-  schedule?: string | null;
-  nextRun?: string | null;
-}
-
-export interface LibrarianStatus {
-  service: LibrarianServiceStatus;
-  scheduler: LibrarianSchedulerStatus;
-  maintenanceJobs: {
-    running: LibrarianJob[];
-    recent: LibrarianJob[];
-  };
-}
-
-export interface LibrarianStatusData {
-  status: LibrarianStatus;
-}
-
-export interface LibrarianJobsData {
-  jobs: LibrarianJob[];
-  count: number;
-}
-
-export interface LibrarianRecommendationsData {
-  recommendations: LibrarianRecommendation[];
-  total: number;
-}
-
-export interface LibrarianRecommendationDetail {
-  id: string;
-  title: string;
-  type: 'strategy' | 'skill';
-  status: 'pending' | 'approved' | 'rejected' | 'skipped';
-  confidence: number;
-  patternCount: number;
-  createdAt: string;
-  expiresAt?: string;
-  pattern?: string;
-  sourceExperiences?: Array<{
-    id: string;
-    title: string;
-    outcome?: string;
-  }>;
-}
-
-export interface LibrarianRecommendationDetailData {
-  recommendation: LibrarianRecommendationDetail;
-}
-
-// =============================================================
-// ANALYTICS TYPES
-// =============================================================
-
-export interface ToolStatEntry {
-  toolName: string;
-  successCount: number;
-  failureCount: number;
-  partialCount: number;
-  totalCount: number;
-  successRate: number;
-}
-
-export interface ToolStatsData {
-  byTool: ToolStatEntry[];
-  totals: {
-    success: number;
-    failure: number;
-    partial: number;
-    total: number;
-  };
-}
-
-export interface SubagentStatEntry {
-  subagentType: string;
-  totalInvocations: number;
-  avgDurationMs?: number;
-}
-
-export interface SubagentStatsData {
-  bySubagent: SubagentStatEntry[];
-  totals: {
-    totalInvocations: number;
-  };
-}
-
-export interface NotificationStatEntry {
-  severity: 'error' | 'warning' | 'info';
-  count: number;
-}
-
-export interface NotificationStatsData {
-  bySeverity: NotificationStatEntry[];
-  totals: {
-    error: number;
-    warning: number;
-    info: number;
-    total: number;
-  };
-}
 
 export interface DashboardAnalyticsData {
   health?: {
@@ -521,8 +253,99 @@ export interface DashboardAnalyticsData {
 }
 
 // =============================================================
+// TRANSCRIPT TYPES
+// =============================================================
+
+export type TranscriptRole = 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result';
+
+export interface TranscriptMessage {
+  id: string;
+  role: TranscriptRole;
+  content: string;
+  toolName?: string;
+  timestamp?: string;
+}
+
+export interface TranscriptSnippet {
+  transcriptId: string;
+  transcript: {
+    claudeSessionId?: string;
+    projectScopeId?: string;
+    createdAt?: string;
+  };
+  messages: TranscriptMessage[];
+  matchedMessageId: string;
+  score: number;
+}
+
+export interface TranscriptSearchData {
+  results: TranscriptSnippet[];
+  totalCount: number;
+}
+
+export type TranscriptStatus = 'active' | 'ended' | 'extracted';
+
+export interface TranscriptRecord {
+  id: string;
+  claudeSessionId: string;
+  sessionScopeId?: string;
+  projectScopeId?: string;
+  agentId?: string;
+  messageCount: number;
+  status: TranscriptStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TranscriptListData {
+  transcripts: TranscriptRecord[];
+  totalCount: number;
+}
+
+export interface TranscriptLoadData {
+  transcript: TranscriptRecord | null;
+  messages: TranscriptMessage[];
+  totalMessages: number;
+}
+
+// =============================================================
+// PROJECTOR TYPES
+// =============================================================
+
+export interface ProjectorStatus {
+  projector: string;
+  latestSeq: number;
+  checkpointSeq: number;
+  lag: number;
+  pendingCount: number;
+  oldestPendingAgeMs: number;
+}
+
+export interface ProjectorDrainResult extends ProjectorStatus {
+  action: string;
+  pulled: number;
+  processed: number;
+  failed: number;
+}
+
+export interface ProjectorEmbedResult extends ProjectorStatus {
+  action: string;
+  processed: number;
+  failed: number;
+  skipped: number;
+  errors?: Array<{ entryId: string; error: string }>;
+}
+
+// =============================================================
 // SEARCH TYPES
 // =============================================================
+
+export type EntrySource =
+  | 'remember'
+  | 'observe_extract'
+  | 'observe_commit'
+  | 'hook_capture'
+  | 'import';
 
 export interface SearchResult {
   type: 'guideline' | 'knowledge' | 'tool' | 'experience';
@@ -531,70 +354,10 @@ export interface SearchResult {
   name?: string;
   snippet?: string;
   score: number;
+  source?: EntrySource;
 }
 
 export interface SearchData {
   results: SearchResult[];
   total: number;
-}
-
-// =============================================================
-// TASK TYPES
-// =============================================================
-
-export type TaskType =
-  | 'bug'
-  | 'feature'
-  | 'improvement'
-  | 'debt'
-  | 'research'
-  | 'question'
-  | 'other';
-export type TaskDomain = 'agent' | 'physical';
-export type TaskSeverity = 'critical' | 'high' | 'medium' | 'low';
-export type TaskUrgency = 'immediate' | 'soon' | 'normal' | 'later';
-export type TaskStatus =
-  | 'backlog'
-  | 'open'
-  | 'in_progress'
-  | 'blocked'
-  | 'review'
-  | 'done'
-  | 'wont_do';
-
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  taskType: TaskType;
-  taskDomain: TaskDomain;
-  severity: TaskSeverity;
-  urgency: TaskUrgency;
-  status: TaskStatus;
-  category?: string;
-  resolution?: string;
-  file?: string;
-  startLine?: number;
-  endLine?: number;
-  assignee?: string;
-  reporter?: string;
-  parentTaskId?: string;
-  blockedBy?: string[];
-  dueDate?: string;
-  startedAt?: string;
-  resolvedAt?: string;
-  estimatedMinutes?: number;
-  actualMinutes?: number;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-  scopeType: string;
-  scopeId?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TasksData {
-  tasks: Task[];
-  meta: { returnedCount: number };
 }

@@ -3,32 +3,11 @@ export { useKnowledge } from './use-knowledge';
 export { useTools } from './use-tools';
 export { useExperiences } from './use-experiences';
 export { useSessions } from './use-sessions';
-export {
-  useEpisodes,
-  useEpisodeEvents,
-  useSessionTimeline,
-  useEpisodeMessages,
-} from './use-episodes';
-export { useGraphNodes, useGraphEdges } from './use-graph';
 export { useProjects } from './use-projects';
-export {
-  useLibrarianStatus,
-  useLibrarianJobs,
-  useLibrarianRecommendations,
-  useLibrarianRecommendation,
-  useApproveRecommendation,
-  useRejectRecommendation,
-  useSkipRecommendation,
-  useRunMaintenance,
-  useJobStatus,
-} from './use-librarian';
-export {
-  useToolStats,
-  useSubagentStats,
-  useNotificationStats,
-  useDashboardAnalytics,
-} from './use-analytics';
 export { useGlobalSearch } from './use-search';
+export { useTranscriptSearch, useTranscriptList, useTranscriptLoad } from './use-transcripts';
+export type { TranscriptSearchOptions } from './use-transcripts';
+export { useProjectorStatus, useDrainProjector, useEmbedPending } from './use-projector';
 export {
   useCreateGuideline,
   useUpdateGuideline,
@@ -53,11 +32,3 @@ export type {
   CreateExperienceInput,
   UpdateExperienceInput,
 } from './use-mutations';
-export {
-  useTasks,
-  useCreateTask,
-  useUpdateTask,
-  useUpdateTaskStatus,
-  useDeleteTask,
-} from './use-tasks';
-export type { CreateTaskInput, UpdateTaskInput, UpdateTaskStatusInput } from './use-tasks';

@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
-import type { ConversationMessage } from "@/api/types";
+import type { TranscriptMessage } from "@/api/types";
 
 interface ConversationViewProps {
-  messages: ConversationMessage[];
+  messages: TranscriptMessage[];
   className?: string;
 }
 
@@ -54,7 +54,7 @@ export function ConversationView({
               {message.role}
             </span>
             <span className="text-xs text-muted-foreground">
-              {formatTime(message.timestamp)}
+              {message.timestamp ? formatTime(message.timestamp) : ''}
             </span>
           </div>
           <div className="whitespace-pre-wrap break-words text-sm">

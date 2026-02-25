@@ -1,385 +1,284 @@
-import Fastify, { type FastifyInstance } from 'fastify';
-import cors from '@fastify/cors';
-import compress from '@fastify/compress';
-import helmet from '@fastify/helmet';
-import cookie from '@fastify/cookie';
+/**
+ * REST API Server — V2 Shim
+ *
+ * Minimal HTTP server that translates v1 dashboard tool calls
+ * (POST /v1/tools/:name) into v2 handler invocations.
+ * Uses Node `http` module — no new dependencies.
+ */
 
-import { createComponentLogger } from '../utils/logger.js';
-import type { AppContext } from '../core/context.js';
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join, extname, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createAppContext, shutdownAppContext } from '../core/factory.js';
-import { ensureRuntime, shutdownOwnedRuntime } from '../core/runtime-owner.js';
-import type { Runtime } from '../core/runtime.js';
 import { config } from '../config/index.js';
-import { logPermissiveModeStartupWarning } from '../config/auth.js';
-import { mapError } from '../utils/error-mapper.js';
-import { registerContext } from '../core/container.js';
-import { registerV1Routes } from './routes/v1.js';
-import { getHealthMonitor, resetHealthMonitor } from '../services/health.service.js';
-import { metrics } from '../utils/metrics.js';
-import { backpressure } from '../utils/backpressure.js';
-import { registerAuthMiddleware, registerCsrfProtection } from './middleware/index.js';
+import { createComponentLogger } from '../utils/logger.js';
+import { getUnifiedAuthConfig } from '../config/auth.js';
+import type { AppContext } from '../core/context.js';
+import { dispatchV1Tool } from './v2-compat.js';
 
-// Extend Fastify request to include authenticated agent ID, request ID, and rate limit info
-declare module 'fastify' {
-  interface FastifyRequest {
-    agentId?: string;
-    requestId?: string;
-    rateLimitInfo?: {
-      limit: number;
-      remaining: number;
-      reset: number;
-    };
-  }
+const logger = createComponentLogger('rest');
+
+const MAX_BODY_BYTES = config.rest.bodyLimit;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function setCorsHeaders(res: ServerResponse): void {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
 }
 
-const restLogger = createComponentLogger('restapi');
-
-/**
- * Validate a CORS origin URL.
- * Only allows http:// or https:// URLs to prevent protocol-based attacks.
- *
- * @security Rejects non-HTTP(S) protocols (file://, javascript:, data:, etc.)
- */
-function isValidCorsOrigin(origin: string): boolean {
-  try {
-    const url = new URL(origin);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  const json = JSON.stringify(body);
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(json);
 }
 
-/**
- * Parse and validate CORS origins from environment variable.
- *
- * @security CORS Security Implications:
- *
- * When `credentials: true` is enabled (as in this server), browsers will:
- * 1. Include cookies, HTTP authentication, and client-side certificates in cross-origin requests
- * 2. Allow the response to be read by the requesting origin
- *
- * Security considerations:
- * - NEVER use wildcard (*) origin with credentials - browsers will reject this
- * - Only whitelist trusted origins that genuinely need cross-origin access
- * - Each origin should be a specific, validated URL (not a pattern)
- * - Consider the principle of least privilege when adding origins
- *
- * Configuration:
- * Set AGENT_MEMORY_REST_CORS_ORIGINS to a comma-separated list of allowed origins.
- * Example: "https://app.example.com,https://admin.example.com"
- *
- * If not set or empty, CORS is disabled (same-origin only).
- *
- * @param envValue - Comma-separated list of allowed origins
- * @returns Array of validated origins, or false if CORS should be disabled
- */
-function parseCorsOrigins(envValue: string | undefined): string[] | false {
-  if (!envValue) {
-    return false;
-  }
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
 
-  const origins = envValue
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
-  const validOrigins: string[] = [];
-  const invalidOrigins: string[] = [];
-
-  for (const origin of origins) {
-    if (isValidCorsOrigin(origin)) {
-      validOrigins.push(origin);
-    } else {
-      invalidOrigins.push(origin);
-    }
-  }
-
-  // Bug #279 fix: Log at error level since this is a security misconfiguration
-  if (invalidOrigins.length > 0) {
-    restLogger.error(
-      { invalidOrigins, validOrigins },
-      'SECURITY: Invalid CORS origins ignored. Check AGENT_MEMORY_REST_CORS_ORIGINS env var. Origins must be valid http:// or https:// URLs.'
-    );
-  }
-
-  return validOrigins.length > 0 ? validOrigins : false;
-}
-
-/**
- * Create a REST API server with the provided AppContext.
- *
- * @param context - The application context (required per ADR-008)
- * @returns Promise resolving to configured Fastify instance
- */
-export async function createServer(context: AppContext): Promise<FastifyInstance> {
-  const app = Fastify({
-    // Fastify v5 expects a config object here; we keep Fastify logging off and rely on our own logger.
-    logger: false,
-    disableRequestLogging: true,
-    bodyLimit: config.rest.bodyLimit,
-    connectionTimeout: 30000, // 30 second connection timeout
-    requestTimeout: Number(process.env.AGENT_MEMORY_REST_REQUEST_TIMEOUT_MS) || 60000, // default 60s, increase for slow LLM extraction
-    // Bug #278 fix: Case-insensitive boolean parsing for trustProxy
-    trustProxy: ['true', '1', 'yes'].includes(
-      (process.env.AGENT_MEMORY_REST_TRUST_PROXY ?? '').toLowerCase()
-    ), // Enable trustProxy to use Fastify's built-in IP parsing (HIGH-001 fix)
-  });
-
-  // Register CORS plugin early, before other plugins and routes
-  // See parseCorsOrigins() JSDoc for security implications of credentials: true
-  await app.register(cors, {
-    origin: parseCorsOrigins(process.env.AGENT_MEMORY_REST_CORS_ORIGINS),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Agent-ID',
-      'X-Request-ID',
-      'X-API-Key',
-      'X-CSRF-Token',
-    ],
-    exposedHeaders: [
-      'X-Request-ID',
-      'Retry-After',
-      'X-RateLimit-Limit',
-      'X-RateLimit-Remaining',
-      'X-RateLimit-Reset',
-    ],
-    maxAge: 86400,
-  });
-
-  // HIGH-006: Security headers via helmet
-  await app.register(helmet, {
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for error pages
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:'],
-      },
-    },
-    hsts: {
-      maxAge: 31536000, // 1 year
-      includeSubDomains: true,
-      preload: true,
-    },
-    frameguard: {
-      action: 'deny',
-    },
-    noSniff: true,
-    ieNoOpen: true,
-    xssFilter: true,
-  });
-
-  // HIGH-004: Response compression for performance
-  await app.register(compress, {
-    global: true,
-    threshold: 1024, // Only compress responses > 1KB
-    encodings: ['gzip', 'deflate'], // Prefer gzip
-  });
-
-  // HIGH-003 fix: Cookie support and CSRF protection
-  const csrfSecret =
-    config.security.csrfSecret ||
-    config.security.restApiKey ||
-    'dev-secret-min-32-chars-required-here';
-
-  await app.register(cookie, {
-    secret: csrfSecret,
-    parseOptions: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    },
-  });
-
-  // Register authentication middleware (request ID, rate limits, content-type, auth)
-  // See src/restapi/middleware/auth.ts for implementation details
-  registerAuthMiddleware(app, context);
-
-  // HIGH-003 fix: CSRF protection for state-changing requests
-  // Must run AFTER auth middleware to access agentId
-  if (csrfSecret.length >= 32) {
-    registerCsrfProtection(app, {
-      secret: csrfSecret,
-      exemptPaths: ['/health', '/metrics', '/v1/openapi.json'],
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(new Error('body_too_large'));
+        return;
+      }
+      chunks.push(chunk);
     });
-  } else {
-    restLogger.warn(
-      { secretLength: csrfSecret.length },
-      'CSRF protection disabled: secret too short (min 32 chars). Set AGENT_MEMORY_CSRF_SECRET or AGENT_MEMORY_REST_API_KEY.'
-    );
-  }
 
-  app.get('/health', async () => {
-    const healthMonitor = getHealthMonitor();
-    const lastCheck = healthMonitor.getLastCheckResult();
-
-    // Get feedback queue stats if available
-    const feedbackQueue = context.services.feedbackQueue;
-    const feedbackQueueStats = feedbackQueue?.getStats();
-
-    if (lastCheck) {
-      return {
-        ok: lastCheck.status !== 'unhealthy',
-        status: lastCheck.status,
-        uptimeSec: Math.round(process.uptime()),
-        version: lastCheck.version,
-        database: lastCheck.database,
-        circuitBreakers: lastCheck.circuitBreakers.length,
-        feedbackQueue: feedbackQueueStats
-          ? {
-              queueDepth: feedbackQueueStats.queueDepth,
-              maxQueueSize: feedbackQueueStats.maxQueueSize,
-              isRunning: feedbackQueueStats.isRunning,
-              batchesProcessed: feedbackQueueStats.batchesProcessed,
-              itemsProcessed: feedbackQueueStats.itemsProcessed,
-              failures: feedbackQueueStats.failures,
-            }
-          : undefined,
-      };
-    }
-
-    // Fallback for first request before periodic checks run
-    return {
-      ok: true,
-      uptimeSec: Math.round(process.uptime()),
-      feedbackQueue: feedbackQueueStats
-        ? {
-            queueDepth: feedbackQueueStats.queueDepth,
-            isRunning: feedbackQueueStats.isRunning,
-          }
-        : undefined,
-    };
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    req.on('error', reject);
   });
-
-  // Prometheus metrics endpoint
-  app.get('/metrics', async (_request, reply) => {
-    void reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
-    return metrics.format();
-  });
-
-  // Register Routes
-  await registerV1Routes(app, context);
-
-  app.setErrorHandler(async (error, request, reply) => {
-    // HIGH-017: Include request ID in error logs for tracing
-    restLogger.error({ error, requestId: request.requestId }, 'REST API request failed');
-
-    // Use centralized Error Mapper
-    const mapped = mapError(error);
-
-    // If it's a server error in production, hide details (HIGH-005 fix)
-    const isProduction = process.env.NODE_ENV === 'production';
-    const safeMessage =
-      mapped.statusCode >= 500 && isProduction ? 'Internal Server Error' : mapped.message;
-
-    // Also hide details for 5xx errors in production (HIGH-005 fix)
-    const responseBody = {
-      error: safeMessage,
-      code: mapped.code,
-      ...(mapped.statusCode < 500 || !isProduction ? { details: mapped.details } : {}),
-    };
-
-    await reply.status(mapped.statusCode).send(responseBody); // CRIT-010 fix: use await instead of void
-  });
-
-  return app;
 }
 
-/**
- * Runtime lifecycle:
- * - CLI passes a shared runtime and manages process exit.
- * - Direct invocation creates and owns the runtime, and can exit the process.
- */
-export async function runServer(
-  options: {
-    runtime?: Runtime;
-    manageProcess?: boolean;
-  } = {}
+// ---------------------------------------------------------------------------
+// Static file serving (dashboard)
+// ---------------------------------------------------------------------------
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json',
+};
+
+function resolveDashboardDir(): string | null {
+  const configured = config.rest.dashboardPath;
+  if (configured) {
+    return existsSync(configured) ? configured : null;
+  }
+
+  // Auto-detect: look for dashboard/dist relative to package root.
+  // At runtime, this file is at dist/restapi/server.js, so go up 2 levels.
+  const __filename = fileURLToPath(import.meta.url);
+  const packageRoot = resolve(dirname(__filename), '..', '..');
+  const autoPath = join(packageRoot, 'dashboard', 'dist');
+  return existsSync(autoPath) ? autoPath : null;
+}
+
+function tryServeStatic(dashboardDir: string, req: IncomingMessage, res: ServerResponse): boolean {
+  const urlPath = (req.url ?? '/').split('?')[0] ?? '/';
+
+  // Never intercept API routes
+  if (urlPath.startsWith('/v1/')) {
+    return false;
+  }
+
+  // Try exact file match first
+  const filePath = join(dashboardDir, urlPath);
+  const normalizedFilePath = resolve(filePath);
+
+  // Prevent path traversal
+  if (!normalizedFilePath.startsWith(resolve(dashboardDir))) {
+    return false;
+  }
+
+  if (existsSync(normalizedFilePath) && statSync(normalizedFilePath).isFile()) {
+    const ext = extname(normalizedFilePath);
+    const mime = MIME_TYPES[ext] ?? 'application/octet-stream';
+    const content = readFileSync(normalizedFilePath);
+    res.writeHead(200, {
+      'Content-Type': mime,
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+    });
+    res.end(content);
+    return true;
+  }
+
+  // SPA fallback: serve index.html for non-file routes
+  const indexPath = join(dashboardDir, 'index.html');
+  if (existsSync(indexPath)) {
+    const content = readFileSync(indexPath);
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+    res.end(content);
+    return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Tool name extraction
+// ---------------------------------------------------------------------------
+
+function extractToolName(url: string): string | null {
+  const path = url.split('?')[0] ?? '';
+  const match = /^\/v1\/tools\/([a-z_]+)$/i.exec(path);
+  return match?.[1] ?? null;
+}
+
+function checkAuth(req: IncomingMessage): boolean {
+  const authConfig = getUnifiedAuthConfig();
+
+  if (authConfig.devModeEnabled || !authConfig.apiKey) {
+    return true;
+  }
+
+  const header = req.headers.authorization;
+  if (!header) return false;
+
+  const [scheme, token] = header.split(' ');
+  if (scheme?.toLowerCase() !== 'bearer' || !token) return false;
+
+  return token === authConfig.apiKey;
+}
+
+// ---------------------------------------------------------------------------
+// Request handler
+// ---------------------------------------------------------------------------
+
+async function handleRequest(
+  context: AppContext,
+  dashboardDir: string | null,
+  req: IncomingMessage,
+  res: ServerResponse
 ): Promise<void> {
-  if (!config.rest.enabled) {
-    restLogger.info('REST API disabled. Set AGENT_MEMORY_REST_ENABLED=true to enable.');
+  setCorsHeaders(res);
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
     return;
   }
 
-  // Early security check: warn if permissive mode is enabled
-  logPermissiveModeStartupWarning('rest');
+  // Serve dashboard static files for GET requests
+  if (req.method === 'GET' && dashboardDir) {
+    if (tryServeStatic(dashboardDir, req, res)) {
+      return;
+    }
+  }
 
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
+    return;
+  }
+
+  if (!checkAuth(req)) {
+    sendJson(res, 401, { error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return;
+  }
+
+  const toolName = extractToolName(req.url ?? '');
+  if (!toolName) {
+    sendJson(res, 404, { error: 'Not found', code: 'NOT_FOUND' });
+    return;
+  }
+
+  let params: Record<string, unknown>;
+  try {
+    const raw = await readBody(req);
+    params = raw.length > 0 ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message === 'body_too_large'
+        ? 'Request body too large'
+        : 'Invalid JSON body';
+    sendJson(res, 400, { error: message, code: 'INVALID_BODY' });
+    return;
+  }
+
+  try {
+    const result = await dispatchV1Tool(context, toolName, params);
+    sendJson(res, 200, { success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error({ tool: toolName, error: message }, 'Tool dispatch error');
+    sendJson(res, 500, {
+      success: false,
+      error: { message, code: 'TOOL_ERROR' },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Server lifecycle
+// ---------------------------------------------------------------------------
+
+export async function runServer(
+  options: { runtime?: unknown; manageProcess?: boolean } = {}
+): Promise<void> {
+  const shouldExitProcess = options.manageProcess ?? true;
+
+  logger.info('Starting REST API server...');
+
+  const context = await createAppContext(config);
   const host = config.rest.host;
   const port = config.rest.port;
+  const dashboardDir = resolveDashboardDir();
 
-  // Create runtime first
-  const { runtime, ownsRuntime } = options.runtime
-    ? { runtime: options.runtime, ownsRuntime: false }
-    : ensureRuntime(config);
-  const shouldExitProcess = options.manageProcess ?? !options.runtime;
+  if (dashboardDir) {
+    logger.info({ dashboardDir }, 'Dashboard UI will be served at /');
+  } else {
+    logger.info('No dashboard dist found — API-only mode');
+  }
 
-  // Initialize AppContext with runtime
-  const context = await createAppContext(config, runtime);
-
-  // Register with container for services that use getDb()/getSqlite()
-  registerContext(context);
-
-  // Initialize and start health monitoring
-  const healthMonitor = getHealthMonitor();
-  healthMonitor.initialize({
-    storageAdapter: context.adapters.storage,
-    cacheStatsProvider: () => ({
-      size: context.runtime.queryCache.cache.size,
-      memoryMB: context.runtime.queryCache.cache.stats.memoryMB,
-    }),
+  const server = createHttpServer((req, res) => {
+    handleRequest(context, dashboardDir, req, res).catch((error: unknown) => {
+      logger.error({ error }, 'Unhandled request error');
+      if (!res.headersSent) {
+        sendJson(res, 500, { success: false, error: { message: 'Internal server error' } });
+      }
+    });
   });
-  healthMonitor.startPeriodicChecks();
 
-  // Start backpressure monitoring
-  backpressure.startMonitoring();
-
-  const app = await createServer(context);
-
-  // Graceful shutdown
   const shutdown = async (signal: string) => {
-    restLogger.info({ signal }, 'Shutting down REST API...');
-
-    // Stop health monitoring
-    healthMonitor.stopPeriodicChecks();
-    backpressure.stopMonitoring();
-    resetHealthMonitor();
-
-    // Gracefully shutdown AppContext (drains feedback queue on SIGTERM)
-    const drainQueue = signal === 'SIGTERM';
-    await shutdownAppContext(context, { drainFeedbackQueue: drainQueue });
-
-    // Close Fastify
-    await app.close();
-
-    await shutdownOwnedRuntime(ownsRuntime, runtime);
-
-    restLogger.info('REST API shutdown complete');
+    logger.info({ signal }, 'Shutting down REST server');
+    server.close();
+    await shutdownAppContext(context);
+    if (context.sqlite) {
+      try {
+        context.sqlite.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    logger.info('REST server shutdown complete');
+    if (shouldExitProcess) {
+      process.exit(0);
+    }
   };
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
 
-  // Process error handlers
-  process.on('uncaughtException', (error) => {
-    restLogger.fatal({ error }, 'Uncaught exception in REST server');
-    void shutdown('uncaughtException').then(() => {
-      if (shouldExitProcess) {
-        process.exit(1);
-      }
-    });
+  server.listen(port, host, () => {
+    logger.info({ host, port }, `REST API server listening on http://${host}:${port}`);
   });
-
-  process.on('unhandledRejection', (reason) => {
-    restLogger.fatal({ reason }, 'Unhandled rejection in REST server');
-    void shutdown('unhandledRejection').then(() => {
-      if (shouldExitProcess) {
-        process.exit(1);
-      }
-    });
-  });
-
-  await app.listen({ host, port });
-  restLogger.info({ host, port }, 'REST API listening');
 }

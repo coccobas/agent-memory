@@ -23,18 +23,12 @@ const ExperiencesPage = lazy(() =>
 const SessionsPage = lazy(() =>
   import('@/pages/sessions').then((m) => ({ default: m.SessionsPage }))
 );
-const EpisodesPage = lazy(() =>
-  import('@/pages/episodes').then((m) => ({ default: m.EpisodesPage }))
+const TranscriptsPage = lazy(() =>
+  import('@/pages/transcripts').then((m) => ({ default: m.TranscriptsPage }))
 );
-const GraphPage = lazy(() => import('@/pages/graph').then((m) => ({ default: m.GraphPage })));
-const LibrarianPage = lazy(() =>
-  import('@/pages/librarian').then((m) => ({ default: m.LibrarianPage }))
+const ProjectorPage = lazy(() =>
+  import('@/pages/projector').then((m) => ({ default: m.ProjectorPage }))
 );
-const AnalyticsPage = lazy(() =>
-  import('@/pages/analytics').then((m) => ({ default: m.AnalyticsPage }))
-);
-const TasksPage = lazy(() => import('@/pages/tasks').then((m) => ({ default: m.TasksPage })));
-const TopicsPage = lazy(() => import('@/pages/topics').then((m) => ({ default: m.TopicsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -92,14 +86,6 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: 'tasks',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <TasksPage />
-          </Suspense>
-        ),
-      },
-      {
         path: 'sessions',
         element: (
           <Suspense fallback={<PageLoader />}>
@@ -108,42 +94,18 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: 'episodes',
+        path: 'transcripts',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <EpisodesPage />
+            <TranscriptsPage />
           </Suspense>
         ),
       },
       {
-        path: 'topics',
+        path: 'projector',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <TopicsPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'graph',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <GraphPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'librarian',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <LibrarianPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'analytics',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <AnalyticsPage />
+            <ProjectorPage />
           </Suspense>
         ),
       },

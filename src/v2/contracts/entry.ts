@@ -5,7 +5,7 @@
  * Every ingestion lane should normalize into these types first.
  */
 
-export type ScopeType = 'global' | 'org' | 'project' | 'session';
+export type ScopeType = 'global' | 'org' | 'project' | 'session' | 'topic';
 
 export type EntryType = 'guideline' | 'knowledge' | 'tool' | 'experience';
 

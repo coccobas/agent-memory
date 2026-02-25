@@ -25,7 +25,7 @@ export const restSection: ConfigSectionMeta = {
     },
     port: {
       envKey: 'AGENT_MEMORY_REST_PORT',
-      defaultValue: 8787,
+      defaultValue: 4000,
       description: 'REST API server port.',
       schema: z.number().int().min(1).max(65535),
       parse: 'port',
@@ -36,6 +36,12 @@ export const restSection: ConfigSectionMeta = {
       description: 'Maximum request body size in bytes (default: 1 MiB).',
       schema: z.number().int().min(1024).max(104857600),
       parse: 'int',
+    },
+    dashboardPath: {
+      envKey: 'AGENT_MEMORY_DASHBOARD_PATH',
+      defaultValue: '',
+      description: 'Path to dashboard dist directory. Auto-detected from package root if empty.',
+      schema: z.string(),
     },
   },
 };

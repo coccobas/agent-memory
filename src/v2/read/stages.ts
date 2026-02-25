@@ -26,6 +26,7 @@ const SCOPE_LEVEL: Record<EntrySnapshot['scope']['type'], number> = {
   org: 2,
   project: 3,
   session: 4,
+  topic: 3,
 };
 
 function scopeProximityScore(entry: EntrySnapshot, request: QueryRequest): number {
